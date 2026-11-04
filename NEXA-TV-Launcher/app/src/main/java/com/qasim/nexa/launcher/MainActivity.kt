@@ -451,8 +451,14 @@ class MainActivity : Activity() {
         if (requestCode == pickerRequest && resultCode == RESULT_OK) {
             val uri = data?.data ?: return
             try {
-                val flags = data.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                if (flags != 0) contentResolver.takePersistableUriPermission(uri, flags)
+                val readPermissionGranted =
+                    (data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0
+                if (readPermissionGranted) {
+                    contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
             } catch (_: Exception) {
                 // Some providers return transient permissions only; still try to apply for this session.
             }
