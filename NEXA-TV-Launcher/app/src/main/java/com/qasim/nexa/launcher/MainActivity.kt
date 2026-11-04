@@ -366,6 +366,17 @@ class MainActivity : Activity() {
         }
         addSettingCard(
             parent,
+            "↗   Get a free Gemini API key",
+            "Open Google AI Studio to create or copy your key"
+        ) {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey")))
+            } catch (_: Exception) {
+                toast("Open a browser and visit aistudio.google.com/app/apikey")
+            }
+        }
+        addSettingCard(
+            parent,
             if (savedKey.isNullOrBlank()) "＋   Add Gemini API key" else "✎   Change Gemini API key",
             "Paste your personal key from Google AI Studio"
         ) { showGeminiKeyDialog() }
