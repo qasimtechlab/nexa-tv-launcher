@@ -31,6 +31,11 @@ jobs:
         uses: android-actions/setup-android@v3
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Assemble split Kotlin source file
+        run: |
+          cat NEXA-TV-Launcher/app/src/main/java/com/qasim/nexa/launcher/MainActivity.kt.part-*.txt > NEXA-TV-Launcher/app/src/main/java/com/qasim/nexa/launcher/MainActivity.kt
+          test -s NEXA-TV-Launcher/app/src/main/java/com/qasim/nexa/launcher/MainActivity.kt
+          grep -q "class MainActivity" NEXA-TV-Launcher/app/src/main/java/com/qasim/nexa/launcher/MainActivity.kt
       - name: Run unit tests and build debug APK
         run: gradle -p NEXA-TV-Launcher :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
       - name: Upload debug APK
