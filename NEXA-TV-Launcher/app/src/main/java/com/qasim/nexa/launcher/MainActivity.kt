@@ -112,7 +112,7 @@ class MainActivity : Activity() {
             clipChildren = false
             clipToPadding = false
         }
-        scroll.addView(column, ScrollView.LayoutParams(-1, -2))
+        scroll.addView(column, FrameLayout.LayoutParams(-1, -2))
         contentHost.addView(scroll, FrameLayout.LayoutParams(-1, -1))
 
         addHeader(column)
