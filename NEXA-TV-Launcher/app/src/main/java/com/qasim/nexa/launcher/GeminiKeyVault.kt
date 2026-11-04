@@ -76,6 +76,7 @@ internal class GeminiKeyVault(context: Context) {
         }
     }
 
+    @android.annotation.TargetApi(Build.VERSION_CODES.M)
     private fun getOrCreateKey(): SecretKey {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         val existing = keyStore.getKey(KEY_ALIAS, null) as? SecretKey
