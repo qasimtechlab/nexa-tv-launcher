@@ -1,6 +1,7 @@
 package com.qasim.nexa.launcher
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ResolveInfo
@@ -9,21 +10,28 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.text.InputType
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
 
 private data class LaunchableApp(
     val packageName: String,
@@ -44,10 +52,17 @@ class MainActivity : Activity() {
     private val textMuted = Color.rgb(170, 188, 211)
     private val accent = Color.rgb(115, 177, 255)
     private val pickerRequest = 4112
+    private lateinit var keyVault: GeminiKeyVault
+    private val aiExecutor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val aiMessages = mutableListOf<Pair<String, String>>()
+    private var aiBusy = false
+    private var aiStatusMessage: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = getSharedPreferences("nexa_preferences", MODE_PRIVATE)
+        keyVault = GeminiKeyVault(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         applyImmersiveMode()
 
@@ -123,6 +138,7 @@ class MainActivity : Activity() {
             PAGE_APPS -> buildApps(column)
             PAGE_CUSTOMIZE -> buildCustomize(column)
             PAGE_AI -> buildAi(column)
+            PAGE_YOUTUBE -> buildYoutube(column)
             PAGE_SETTINGS -> buildSettings(column)
             else -> buildHome(column)
         }
@@ -173,6 +189,7 @@ class MainActivity : Activity() {
             Triple("Home", PAGE_HOME, "⌂"),
             Triple("Apps", PAGE_APPS, "▦"),
             Triple("Customize", PAGE_CUSTOMIZE, "✦"),
+            Triple("YouTube", PAGE_YOUTUBE, "▶"),
             Triple("BixSigma AI", PAGE_AI, "◇"),
             Triple("Settings", PAGE_SETTINGS, "⚙")
         )
@@ -234,6 +251,8 @@ class MainActivity : Activity() {
             railScroll.addView(rail)
             parent.addView(railScroll, LinearLayout.LayoutParams(-1, dp(152)))
         }
+
+        buildHomeYoutubeRail(parent)
     }
 
     private fun buildApps(parent: LinearLayout) {
@@ -275,11 +294,30 @@ class MainActivity : Activity() {
         parent.addView(textView("Personal settings are stored on this TV. No account is required.", 14, textMuted).apply {
             setPadding(0, 0, 0, dp(18))
         })
-        addSettingCard(parent, "▧   Choose wallpaper", "Use an image saved on your device") { openWallpaperPicker() }
+
+        parent.addView(sectionTitle("Built-in NEXA wallpapers"))
+        parent.addView(textView("Choose an offline wallpaper, or use your own image below.", 13, textMuted).apply {
+            setPadding(0, 0, 0, dp(10))
+        })
+        val wallpaperRail = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        WallpaperPresets.all.forEach { preset ->
+            wallpaperRail.addView(wallpaperPresetCard(preset), LinearLayout.LayoutParams(dp(188), dp(142)).apply {
+                rightMargin = dp(12)
+            })
+        }
+        val wallpaperScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        wallpaperScroll.addView(wallpaperRail)
+        parent.addView(wallpaperScroll, LinearLayout.LayoutParams(-1, dp(152)).apply { bottomMargin = dp(14) })
+
+        addSettingCard(parent, "▧   Choose my own wallpaper", "Use an image saved on your device") { openWallpaperPicker() }
         addSettingCard(parent, "◐   Change appearance", "Current theme: ${themeName()}") { cycleTheme() }
         addSettingCard(parent, "✦   Accent color", "Current accent: ${accentName()}") { cycleAccent() }
         addSettingCard(parent, "↺   Reset personalization", "Restore the original NEXA appearance") {
-            prefs.edit().remove(KEY_WALLPAPER).putString(KEY_THEME, THEME_GLASS).putInt(KEY_ACCENT, 0).apply()
+            prefs.edit().remove(KEY_WALLPAPER).remove(KEY_BUILTIN_WALLPAPER)
+                .putString(KEY_THEME, THEME_GLASS).putInt(KEY_ACCENT, 0).apply()
             applyWallpaper()
             renderPage(PAGE_CUSTOMIZE)
             toast("Personalization reset")
@@ -300,7 +338,7 @@ class MainActivity : Activity() {
                 toast("Open Android Settings and choose Default Apps → Home app")
             }
         }
-        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.0.0 · Created by Mirza Qasim") {
+        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.1.0 · Created by Mirza Qasim") {
             renderAbout(parent)
         }
         addSettingCard(parent, "↻   Restart launcher screen", "Reload NEXA without rebooting the TV") {
@@ -312,20 +350,401 @@ class MainActivity : Activity() {
         val logo = glassCard(true).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(dp(28), dp(28), dp(28), dp(28))
+            setPadding(dp(28), dp(22), dp(28), dp(22))
         }
-        logo.addView(textView("◇", 48, accent, true))
-        logo.addView(textView("BixSigma AI", 30, textLight, true))
-        logo.addView(textView("Your personal AI space", 14, textMuted))
-        parent.addView(logo, LinearLayout.LayoutParams(-1, dp(190)).apply { bottomMargin = dp(18) })
+        logo.addView(textView("◇", 44, accent, true))
+        logo.addView(textView("BixSigma AI", 29, textLight, true))
+        logo.addView(textView("Powered by Gemini · ${GeminiApi.MODEL}", 13, textMuted))
+        parent.addView(logo, LinearLayout.LayoutParams(-1, dp(164)).apply { bottomMargin = dp(16) })
 
-        parent.addView(sectionTitle("Assistant identity"))
-        parent.addView(infoCard("BixSigma AI is created by Mirza Qasim from Faisalabad, Pakistan. This identity is part of the assistant configuration; it is not model training."))
-        parent.addView(sectionTitle("AI activation"))
-        parent.addView(infoCard("AI provider is not configured in this first launcher build. No fake replies are generated and no API key is requested or stored."))
-        addSettingCard(parent, "Provider integration", "Will be enabled after provider eligibility, terms and secure key handling are verified.") {
-            toast("BixSigma AI interface is ready; provider integration is not active yet.")
+        parent.addView(sectionTitle("Activate your AI assistant"))
+        val savedKey = keyVault.read()
+        if (savedKey.isNullOrBlank()) {
+            parent.addView(infoCard("BixSigma AI is ready to connect. Add your own Google Gemini API key to activate real AI replies."))
+        } else {
+            parent.addView(infoCard("Gemini API key saved on this TV. Your key is kept in app-private storage and encrypted with Android Keystore where supported."))
         }
+        addSettingCard(
+            parent,
+            if (savedKey.isNullOrBlank()) "＋   Add Gemini API key" else "✎   Change Gemini API key",
+            "Paste your personal key from Google AI Studio"
+        ) { showGeminiKeyDialog() }
+        if (!savedKey.isNullOrBlank()) {
+            addSettingCard(parent, "✓   Test Gemini connection", "Check whether your key can reach Gemini") {
+                testGeminiConnection()
+            }
+        }
+        parent.addView(textView("Free-tier availability and request limits are controlled by Google. Avoid sending passwords or sensitive information.", 11, textMuted).apply {
+            setPadding(dp(2), dp(1), dp(2), dp(12))
+        })
+
+        parent.addView(sectionTitle("Chat with BixSigma"))
+        if (aiMessages.isEmpty()) {
+            parent.addView(infoCard("Start a conversation. BixSigma can answer questions, explain topics and help with everyday tasks."))
+        } else {
+            aiMessages.takeLast(16).forEach { (role, message) ->
+                parent.addView(aiChatBubble(role, message), LinearLayout.LayoutParams(-1, -2).apply {
+                    bottomMargin = dp(10)
+                })
+            }
+        }
+        if (aiBusy) {
+            val loading = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                addView(ProgressBar(this@MainActivity), LinearLayout.LayoutParams(dp(26), dp(26)))
+                addView(textView("BixSigma is thinking…", 14, textMuted).apply {
+                    setPadding(dp(12), 0, 0, 0)
+                })
+            }
+            parent.addView(loading)
+        }
+        aiStatusMessage?.takeIf { it.isNotBlank() }?.let { status ->
+            parent.addView(infoCard(status))
+        }
+
+        val inputRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val messageInput = EditText(this).apply {
+            tag = "bixsigma_chat_input"
+            hint = "Ask BixSigma anything…"
+            setTextColor(textLight)
+            setHintTextColor(textMuted)
+            textSize = 16f
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            minLines = 1
+            maxLines = 3
+            setPadding(dp(15), dp(10), dp(15), dp(10))
+            background = cardDrawable(false)
+            isFocusable = true
+            isFocusableInTouchMode = true
+            isEnabled = !aiBusy
+        }
+        inputRow.addView(messageInput, LinearLayout.LayoutParams(0, dp(62), 1f).apply {
+            rightMargin = dp(10)
+        })
+        val sendButton = Button(this).apply {
+            text = "Send  ➤"
+            isAllCaps = false
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            background = navDrawable(true, false)
+            isFocusable = true
+            isEnabled = !aiBusy && !savedKey.isNullOrBlank()
+            setOnClickListener { sendAiMessage(messageInput) }
+        }
+        inputRow.addView(sendButton, LinearLayout.LayoutParams(dp(116), dp(58)))
+        parent.addView(inputRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+
+        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val newChat = navButton("↻   New chat", false) {
+            aiMessages.clear()
+            aiStatusMessage = null
+            prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).apply()
+            renderPage(PAGE_AI)
+        }
+        actions.addView(newChat, LinearLayout.LayoutParams(-2, dp(46)).apply { rightMargin = dp(10) })
+        if (!savedKey.isNullOrBlank()) {
+            val remove = navButton("Remove API key", false) {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Remove Gemini API key?")
+                    .setMessage("BixSigma AI will stop replying until a key is added again.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Remove") { _, _ ->
+                        keyVault.clear()
+                        prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).apply()
+                        aiMessages.clear()
+                        renderPage(PAGE_AI)
+                    }
+                    .show()
+            }
+            actions.addView(remove, LinearLayout.LayoutParams(-2, dp(46)))
+        }
+        parent.addView(actions, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8) })
+    }
+
+    private fun aiChatBubble(role: String, message: String): View {
+        val assistant = role == "assistant"
+        val card = glassCard(false).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+        }
+        card.addView(textView(if (assistant) "BIXSIGMA AI" else "YOU", 11, if (assistant) accent else textMuted, true))
+        card.addView(textView(message, 15, textLight).apply {
+            setPadding(0, dp(5), 0, 0)
+            setTextIsSelectable(true)
+        })
+        return card
+    }
+
+    private fun showGeminiKeyDialog() {
+        val input = EditText(this).apply {
+            hint = "Paste your Gemini API key"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText(keyVault.read().orEmpty())
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            setTextColor(textLight)
+            setHintTextColor(textMuted)
+        }
+        val holder = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(8), dp(22), 0)
+            addView(input, LinearLayout.LayoutParams(-1, dp(56)))
+            addView(textView("Get a key from Google AI Studio. It is saved on this TV, not uploaded to this GitHub repository.", 12, textMuted).apply {
+                setPadding(0, dp(10), 0, 0)
+            })
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Connect Gemini API")
+            .setView(holder)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Save key") { _, _ ->
+                val value = input.text?.toString()?.trim().orEmpty()
+                if (value.length < 20) {
+                    toast("Please paste a valid-looking Gemini API key.")
+                } else {
+                    try {
+                        keyVault.save(value)
+                        aiStatusMessage = "Gemini key saved. Tap Test Gemini connection to verify it."
+                        renderPage(PAGE_AI)
+                        toast("Gemini API key saved on this TV")
+                    } catch (error: Exception) {
+                        toast(error.message ?: "Could not save the API key.")
+                    }
+                }
+            }
+            .show()
+    }
+
+    private fun testGeminiConnection() {
+        val key = keyVault.read()
+        if (key.isNullOrBlank()) {
+            showGeminiKeyDialog()
+            return
+        }
+        if (aiBusy) return
+        aiBusy = true
+        aiStatusMessage = "Testing Gemini connection…"
+        renderPage(PAGE_AI)
+        aiExecutor.execute {
+            try {
+                GeminiApi.send(key, "Reply with exactly: BixSigma AI is connected and ready.")
+                mainHandler.post {
+                    aiBusy = false
+                    aiStatusMessage = "Connection successful. BixSigma AI is ready."
+                    if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+                    toast("Gemini connection successful")
+                }
+            } catch (error: Exception) {
+                mainHandler.post {
+                    aiBusy = false
+                    aiStatusMessage = error.message ?: "Gemini connection failed. Check your internet and API key."
+                    if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+                }
+            }
+        }
+    }
+
+    private fun sendAiMessage(input: EditText) {
+        val prompt = input.text?.toString()?.trim().orEmpty()
+        if (prompt.isBlank()) {
+            toast("Write a message first")
+            return
+        }
+        val key = keyVault.read()
+        if (key.isNullOrBlank()) {
+            showGeminiKeyDialog()
+            return
+        }
+        if (aiBusy) return
+
+        val previousId = prefs.getString(KEY_GEMINI_INTERACTION_ID, null)
+        aiMessages.add("user" to prompt)
+        aiBusy = true
+        aiStatusMessage = null
+        renderPage(PAGE_AI)
+
+        aiExecutor.execute {
+            try {
+                val result = GeminiApi.send(key, prompt, previousId)
+                mainHandler.post {
+                    aiMessages.add("assistant" to result.text)
+                    prefs.edit().putString(KEY_GEMINI_INTERACTION_ID, result.interactionId).apply()
+                    aiBusy = false
+                    aiStatusMessage = null
+                    if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+                }
+            } catch (error: Exception) {
+                mainHandler.post {
+                    aiBusy = false
+                    aiStatusMessage = error.message ?: "Could not reach Gemini. Check your internet and try again."
+                    if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+                }
+            }
+        }
+    }
+
+    private fun buildHomeYoutubeRail(parent: LinearLayout) {
+        parent.addView(sectionTitle("YouTube for you"))
+        parent.addView(textView("Open your signed-in YouTube feed, or explore videos by your chosen interests.", 13, textMuted).apply {
+            setPadding(0, 0, 0, dp(12))
+        })
+        val openFeed = actionCard("▶", "My YouTube Home", "Open your personal recommendations") {
+            openYouTubeHome()
+        }
+        parent.addView(openFeed, LinearLayout.LayoutParams(-1, dp(112)).apply { bottomMargin = dp(12) })
+
+        val rail = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        youtubeInterests().take(5).forEach { topic ->
+            rail.addView(actionCard("▷", topic, "Explore on YouTube") {
+                openYouTubeSearch(topic)
+            }, LinearLayout.LayoutParams(dp(210), dp(118)).apply { rightMargin = dp(12) })
+        }
+        val scroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        scroll.addView(rail)
+        parent.addView(scroll, LinearLayout.LayoutParams(-1, dp(128)))
+    }
+
+    private fun buildYoutube(parent: LinearLayout) {
+        parent.addView(sectionTitle("YouTube recommendations"))
+        parent.addView(infoCard("For true account-based recommendations, open the official YouTube app while signed in. These NEXA cards are quick routes based on interests you choose on this TV."))
+        addSettingCard(parent, "▶   Open my YouTube Home", "See the recommendations from your signed-in YouTube account") {
+            openYouTubeHome()
+        }
+        addSettingCard(parent, "✎   Choose my interests", "Personalize the topic cards shown on NEXA Home") {
+            showYouTubeInterestsDialog()
+        }
+        parent.addView(sectionTitle("Explore your interests"))
+        youtubeInterests().forEach { topic ->
+            addSettingCard(parent, "▷   $topic", "Find videos and channels on YouTube") {
+                openYouTubeSearch(topic)
+            }
+        }
+    }
+
+    private fun youtubeInterests(): List<String> {
+        val stored = prefs.getString(KEY_YOUTUBE_INTERESTS, DEFAULT_YOUTUBE_INTERESTS)
+            ?: DEFAULT_YOUTUBE_INTERESTS
+        val topics = stored.split("|").map { it.trim() }.filter { it.isNotBlank() }.distinct().take(6)
+        return topics.ifEmpty { DEFAULT_YOUTUBE_INTERESTS.split("|") }
+    }
+
+    private fun showYouTubeInterestsDialog() {
+        val input = EditText(this).apply {
+            hint = "AI & Technology | Gaming | Learning"
+            setText(youtubeInterests().joinToString(" | "))
+            minLines = 2
+            maxLines = 4
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            setTextColor(textLight)
+            setHintTextColor(textMuted)
+        }
+        val holder = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(8), dp(22), 0)
+            addView(input, LinearLayout.LayoutParams(-1, dp(92)))
+            addView(textView("Separate up to six topics with the | symbol.", 12, textMuted))
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Your YouTube interests")
+            .setView(holder)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Save") { _, _ ->
+                val topics = input.text.toString()
+                    .split("|", ",", "\n")
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .take(6)
+                if (topics.isEmpty()) {
+                    toast("Add at least one interest")
+                } else {
+                    prefs.edit().putString(KEY_YOUTUBE_INTERESTS, topics.joinToString("|")).apply()
+                    renderPage(if (currentPage == PAGE_YOUTUBE) PAGE_YOUTUBE else PAGE_HOME)
+                }
+            }
+            .show()
+    }
+
+    private fun openYouTubeHome() {
+        val packages = listOf("com.google.android.youtube.tv", "com.google.android.youtube")
+        for (packageName in packages) {
+            try {
+                val launch = packageManager.getLeanbackLaunchIntentForPackage(packageName)
+                    ?: packageManager.getLaunchIntentForPackage(packageName)
+                if (launch != null) {
+                    startActivity(launch)
+                    return
+                }
+            } catch (_: Exception) {
+                // Try the next YouTube package or web fallback.
+            }
+        }
+        openYouTubeUrl("https://www.youtube.com")
+    }
+
+    private fun openYouTubeSearch(query: String) {
+        openYouTubeUrl("https://www.youtube.com/results?search_query=${Uri.encode(query)}")
+    }
+
+    private fun openYouTubeUrl(url: String) {
+        for (packageName in listOf("com.google.android.youtube.tv", "com.google.android.youtube")) {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).setPackage(packageName)
+                if (intent.resolveActivity(packageManager) != null) {
+                    startActivity(intent)
+                    return
+                }
+            } catch (_: Exception) {
+                // Try the next handler.
+            }
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (_: Exception) {
+            toast("Install or update the YouTube app to watch videos.")
+        }
+    }
+
+    private fun wallpaperPresetCard(preset: WallpaperPreset): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            background = cardDrawable(false)
+            isFocusable = true
+            isClickable = true
+            setOnFocusChangeListener { view, focused -> view.background = cardDrawable(focused) }
+            setOnClickListener { setBuiltInWallpaper(preset.id) }
+        }
+        val preview = FrameLayout(this).apply {
+            background = WallpaperPresets.drawable(preset.id)
+            addView(textView("✦", 26, Color.WHITE, true).apply {
+                gravity = Gravity.CENTER
+            }, FrameLayout.LayoutParams(-1, -1))
+        }
+        card.addView(preview, LinearLayout.LayoutParams(-1, dp(78)))
+        card.addView(textView(preset.title, 14, textLight, true).apply {
+            setPadding(dp(3), dp(7), dp(3), 0)
+        })
+        card.addView(textView(preset.subtitle, 10, textMuted).apply {
+            setPadding(dp(3), dp(2), dp(3), 0)
+            maxLines = 1
+        })
+        return card
+    }
+
+    private fun setBuiltInWallpaper(id: String) {
+        prefs.edit().remove(KEY_WALLPAPER).putString(KEY_BUILTIN_WALLPAPER, id).apply()
+        applyWallpaper()
+        renderPage(PAGE_CUSTOMIZE)
+        toast("${WallpaperPresets.find(id).title} wallpaper applied")
     }
 
     private fun renderAbout(parent: LinearLayout) {
@@ -462,7 +881,7 @@ class MainActivity : Activity() {
             } catch (_: Exception) {
                 // Some providers return transient permissions only; still try to apply for this session.
             }
-            prefs.edit().putString(KEY_WALLPAPER, uri.toString()).apply()
+            prefs.edit().putString(KEY_WALLPAPER, uri.toString()).remove(KEY_BUILTIN_WALLPAPER).apply()
             applyWallpaper()
             renderPage(PAGE_CUSTOMIZE)
             toast("Wallpaper updated")
@@ -473,13 +892,14 @@ class MainActivity : Activity() {
         if (!::wallpaperView.isInitialized) return
         val uriText = prefs.getString(KEY_WALLPAPER, null)
         if (uriText.isNullOrBlank()) {
-            wallpaperView.setImageDrawable(null)
+            val presetId = prefs.getString(KEY_BUILTIN_WALLPAPER, "aurora")
+            wallpaperView.setImageDrawable(WallpaperPresets.drawable(presetId))
             wallpaperView.setBackgroundColor(bgDark)
         } else {
             try {
                 wallpaperView.setImageURI(Uri.parse(uriText))
             } catch (_: Exception) {
-                wallpaperView.setImageDrawable(null)
+                wallpaperView.setImageDrawable(WallpaperPresets.drawable("aurora"))
                 wallpaperView.setBackgroundColor(bgDark)
                 toast("Saved wallpaper could not be opened. Choose another image.")
             }
@@ -613,8 +1033,13 @@ String): TextView = textView(title, 21, textLight, true).apply {
         private const val PAGE_APPS = "apps"
         private const val PAGE_CUSTOMIZE = "customize"
         private const val PAGE_AI = "ai"
+        private const val PAGE_YOUTUBE = "youtube"
         private const val PAGE_SETTINGS = "settings"
         private const val KEY_WALLPAPER = "wallpaper_uri"
+        private const val KEY_BUILTIN_WALLPAPER = "builtin_wallpaper"
+        private const val KEY_GEMINI_INTERACTION_ID = "gemini_interaction_id"
+        private const val KEY_YOUTUBE_INTERESTS = "youtube_interests"
+        private const val DEFAULT_YOUTUBE_INTERESTS = "AI & Technology|Android Tips|Gaming|Science & Learning|Islamic Content|Entertainment"
         private const val KEY_THEME = "theme"
         private const val KEY_ACCENT = "accent"
         private const val THEME_GLASS = "glass"
