@@ -452,7 +452,7 @@ class MainActivity : Activity() {
             val uri = data?.data ?: return
             try {
                 val flags = data.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                contentResolver.takePersistableUriPermission(uri, flags and Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                if (flags != 0) contentResolver.takePersistableUriPermission(uri, flags)
             } catch (_: Exception) {
                 // Some providers return transient permissions only; still try to apply for this session.
             }
