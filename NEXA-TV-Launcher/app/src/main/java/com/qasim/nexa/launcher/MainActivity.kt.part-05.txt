@@ -1,0 +1,100 @@
+
+String): TextView = textView(title, 21, textLight, true).apply {
+        setPadding(0, dp(7), 0, dp(12))
+    }
+
+    private fun infoCard(message: String): View = TextView(this).apply {
+        text = message
+        textSize = 15f
+        setTextColor(textMuted)
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(20), dp(18), dp(20), dp(18))
+        background = cardDrawable(false)
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(14) }
+    }
+
+    private fun navButton(label: String, selected: Boolean, action: () -> Unit): TextView {
+        return TextView(this).apply {
+            text = label
+            textSize = 14f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setTextColor(if (selected) Color.WHITE else textMuted)
+            gravity = Gravity.CENTER
+            setPadding(dp(19), 0, dp(19), 0)
+            background = navDrawable(selected, false)
+            isFocusable = true
+            isClickable = true
+            setOnFocusChangeListener { v, focus ->
+                v.background = navDrawable(selected || focus, focus)
+                setTextColor(if (selected || focus) Color.WHITE else textMuted)
+            }
+            setOnClickListener { action() }
+        }
+    }
+
+    private fun glassCard(large: Boolean): LinearLayout = LinearLayout(this).apply {
+        background = cardDrawable(false, large)
+        clipToPadding = false
+    }
+
+    private fun cardDrawable(focused: Boolean, large: Boolean = false): GradientDrawable {
+        val tint = when (prefsOrDefaultTheme()) {
+            THEME_LIGHT -> if (focused) 0xFFF3F7FF.toInt() else 0xDDEAF0FA.toInt()
+            THEME_DARK -> if (focused) 0xFF26364E.toInt() else 0xBB18263A.toInt()
+            else -> if (focused) 0xCC44658A.toInt() else 0x8F233650.toInt()
+        }
+        val strokeColor = if (focused) accentColor() else 0x557F9BBD.toInt()
+        return GradientDrawable().apply {
+            cornerRadius = dp(if (large) 26 else 20).toFloat()
+            setColor(tint)
+            setStroke(dp(if (focused) 2 else 1), strokeColor)
+        }
+    }
+
+    private fun navDrawable(active: Boolean, focused: Boolean): GradientDrawable = GradientDrawable().apply {
+        cornerRadius = dp(22).toFloat()
+        setColor(if (active) 0xAA345579.toInt() else if (focused) 0xAA3A5879.toInt() else 0x66304460)
+        setStroke(dp(if (focused) 2 else 1), if (focused) accentColor() else 0x557F9BBD.toInt())
+    }
+
+    private fun accentColor(): Int = when (prefsOrDefaultAccent()) {
+        1 -> Color.rgb(181, 139, 255)
+        2 -> Color.rgb(91, 220, 198)
+        3 -> Color.rgb(255, 190, 105)
+        else -> accent
+    }
+
+    private fun prefsOrDefaultTheme() = if (::prefs.isInitialized) prefs.getString(KEY_THEME, THEME_GLASS) ?: THEME_GLASS else THEME_GLASS
+    private fun prefsOrDefaultAccent() = if (::prefs.isInitialized) prefs.getInt(KEY_ACCENT, 0) else 0
+
+    private fun textView(text: String, size: Int, color: Int, bold: Boolean = false): TextView = TextView(this).apply {
+        this.text = text
+        textSize = size.toFloat()
+        val resolvedColor = when {
+            prefsOrDefaultTheme() == THEME_LIGHT && color == textLight -> Color.rgb(22, 35, 53)
+            prefsOrDefaultTheme() == THEME_LIGHT && color == textMuted -> Color.rgb(75, 91, 113)
+            color == accent -> accentColor()
+            else -> color
+        }
+        setTextColor(resolvedColor)
+        if (bold) typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        includeFontPadding = true
+    }
+
+    private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
+
+    companion object {
+        private const val PAGE_HOME = "home"
+        private const val PAGE_APPS = "apps"
+        private const val PAGE_CUSTOMIZE = "customize"
+        private const val PAGE_AI = "ai"
+        private const val PAGE_SETTINGS = "settings"
+        private const val KEY_WALLPAPER = "wallpaper_uri"
+        private const val KEY_THEME = "theme"
+        private const val KEY_ACCENT = "accent"
+        private const val THEME_GLASS = "glass"
+        private const val THEME_DARK = "dark"
+        private const val THEME_LIGHT = "light"
+    }
+}
