@@ -508,6 +508,8 @@ class MainActivity : Activity() {
                 } else {
                     try {
                         keyVault.save(value)
+                        prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).apply()
+                        aiMessages.clear()
                         aiStatusMessage = "Gemini key saved. Tap Test Gemini connection to verify it."
                         renderPage(PAGE_AI)
                         toast("Gemini API key saved on this TV")
