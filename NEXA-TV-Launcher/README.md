@@ -30,7 +30,7 @@ Native Android TV launcher built with Kotlin and classic Android Views. Designed
 4. Select **Test Gemini connection**.
 5. Start chatting with BixSigma AI.
 
-The API key is entered on the TV and is not stored in this repository or included in the APK. Requests are sent directly from the TV to Google's Gemini API. Free-tier model availability, quotas and data terms are controlled by Google. Do not submit passwords or other sensitive information.
+The API key is entered on the TV and is not stored in this repository or included in the APK. Requests are sent directly from the TV to Google's Gemini API. The app uses server-side interaction chaining; on Google's free tier, stored interaction objects are retained for one day by default. Free-tier model availability, quotas and data terms are controlled by Google. Do not submit passwords or other sensitive information.
 
 ## YouTube
 
@@ -40,7 +40,7 @@ The **My YouTube Home** card launches the official YouTube app so that a signed-
 
 Configured for minSdk 21, compileSdk 35, JDK 17, Android Gradle Plugin 8.7.3, Kotlin 2.1.20 and Gradle 8.9. Cloud builds run unit tests, Android lint and assemble a debug APK.
 
-The first output is a debug APK for testing, not a signed public release. Test on the target P291 TV box before selecting NEXA as the permanent default Home app.
+A successful build is also copied to `releases/NEXA-TV-Launcher-v1.1.0-debug.apk` in this repository and uploaded as a GitHub Actions artifact. This is a debug APK for testing, not a signed public release. Test on the target P291 TV box before selecting NEXA as the permanent default Home app.
 
 ## Safe installation and testing
 
