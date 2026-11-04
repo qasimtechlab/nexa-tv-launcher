@@ -7,6 +7,10 @@ on:
       - '.github/workflows/build-nexa-from-source.yml'
   workflow_dispatch:
 
+concurrency:
+  group: nexa-tv-launcher-build
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
