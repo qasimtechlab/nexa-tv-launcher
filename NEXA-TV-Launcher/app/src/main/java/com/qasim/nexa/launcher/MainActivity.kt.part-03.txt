@@ -6,8 +6,8 @@
             setPadding(0, 0, 0, dp(18))
         })
         addSettingCard(parent, "▧   Choose wallpaper", "Use an image saved on your device") { openWallpaperPicker() }
-        addSettingCard(parent, "◐   Change appearance", "Current theme: \${themeName()}") { cycleTheme() }
-        addSettingCard(parent, "✦   Accent color", "Current accent: \${accentName()}") { cycleAccent() }
+        addSettingCard(parent, "◐   Change appearance", "Current theme: ${themeName()}") { cycleTheme() }
+        addSettingCard(parent, "✦   Accent color", "Current accent: ${accentName()}") { cycleAccent() }
         addSettingCard(parent, "↺   Reset personalization", "Restore the original NEXA appearance") {
             prefs.edit().remove(KEY_WALLPAPER).putString(KEY_THEME, THEME_GLASS).putInt(KEY_ACCENT, 0).apply()
             applyWallpaper()
