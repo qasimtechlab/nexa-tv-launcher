@@ -43,9 +43,10 @@ jobs:
         run: |
           mkdir -p releases
           cp NEXA-TV-Launcher/app/build/outputs/apk/debug/app-debug.apk releases/NEXA-TV-Launcher-v1.2.1-debug.apk
+          cp NEXA-TV-Launcher/app/build/outputs/apk/debug/app-debug.apk releases/NEXA-TV-Launcher-latest.apk
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add releases/NEXA-TV-Launcher-v1.2.1-debug.apk
+          git add releases/NEXA-TV-Launcher-v1.2.1-debug.apk releases/NEXA-TV-Launcher-latest.apk
           if git diff --cached --quiet; then
             echo "APK is unchanged; no repository commit needed."
           else
