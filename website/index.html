@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080d18">
+  <meta name="color-scheme" content="dark">
+  <title>Nexa TV Launcher — Futuristic Android TV Home Screen | Free APK</title>
+  <meta name="description" content="Download Nexa TV Launcher, a modern Android TV launcher by Mirza Qasim. Customize your TV home screen, manage favourite apps, browse Hindi and Urdu YouTube channels, and navigate with your TV remote.">
+  <meta name="keywords" content="Nexa TV Launcher, Android TV launcher, Android TV APK, Smart TV launcher, TV box launcher, Android TV home screen, remote control launcher, Mirza Qasim, Faisalabad">
+  <meta name="author" content="Mirza Qasim">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://nexa-tv-launcher.vercel.app/">
+  <link rel="icon" type="image/svg+xml" href="/assets/nexa-mark.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Nexa TV Launcher — Your TV, Your World">
+  <meta property="og:description" content="A futuristic, customizable Android TV launcher designed for remote-first navigation. Free APK download.">
+  <meta property="og:url" content="https://nexa-tv-launcher.vercel.app/">
+  <meta property="og:image" content="https://nexa-tv-launcher.vercel.app/assets/og-preview.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Nexa TV Launcher">
+  <meta name="twitter:description" content="A modern Android TV launcher by Mirza Qasim. Download the latest APK.">
+  <meta name="twitter:image" content="https://nexa-tv-launcher.vercel.app/assets/og-preview.svg">
+  <style>
+    :root{--bg:#070b14;--bg2:#0b1220;--panel:rgba(17,27,45,.78);--line:rgba(158,190,231,.14);--text:#f4f8ff;--muted:#a5b5cb;--cyan:#69e5f4;--blue:#6a9dff;--violet:#a58aff;--green:#73e2b0;--radius:24px;--shadow:0 25px 80px rgba(0,0,0,.35)}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth;scroll-padding-top:90px}
+    body{margin:0;background:radial-gradient(ellipse at 12% 4%,rgba(35,91,156,.22),transparent 34%),radial-gradient(ellipse at 89% 20%,rgba(105,62,180,.16),transparent 29%),var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6;overflow-x:hidden}
+    a{color:inherit;text-decoration:none}
+    button,a{ -webkit-tap-highlight-color:transparent}
+    a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offset:5px;box-shadow:0 0 0 7px rgba(105,229,244,.12)}
+    .skip{position:absolute;left:-999px;top:8px;background:#fff;color:#06101c;padding:12px 16px;border-radius:10px;z-index:99}
+    .skip:focus{left:12px}
+    .wrap{width:min(1180px,calc(100% - 44px));margin-inline:auto}
+    .topbar{position:sticky;top:0;z-index:30;background:rgba(7,11,20,.82);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+    .nav{height:78px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.06em}
+    .brand img{width:39px;height:39px}
+    .brand small{display:block;color:#8fa4c0;font-size:9px;letter-spacing:.19em;font-weight:700;margin-top:-3px}
+    .navlinks{display:flex;align-items:center;gap:26px;color:#bdcbe0;font-size:13px}
+    .navlinks a:hover{color:var(--cyan)}
+    .nav-cta{padding:11px 17px!important;border-radius:999px;background:linear-gradient(110deg,#58cfed,#7c99ff);color:#07111e!important;font-weight:800;box-shadow:0 8px 24px rgba(91,189,232,.18)}
+    .menu-button{display:none;background:transparent;border:1px solid var(--line);color:var(--text);border-radius:12px;padding:9px 12px;font-size:19px}
+    .hero{position:relative;padding:78px 0 64px;min-height:600px;display:grid;grid-template-columns:1.03fr .97fr;align-items:center;gap:44px}
+    .hero:before{content:"";position:absolute;width:530px;height:530px;border-radius:50%;background:rgba(73,163,235,.09);filter:blur(75px);right:5%;top:12%;pointer-events:none}
+    .eyebrow{display:inline-flex;align-items:center;gap:9px;border:1px solid rgba(105,229,244,.24);background:rgba(39,132,159,.1);color:#9cecf3;padding:8px 13px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+    .pulse{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green)}
+    h1{font-size:clamp(43px,5.4vw,72px);line-height:1.04;letter-spacing:-.055em;margin:23px 0 19px;max-width:660px}
+    .gradient{background:linear-gradient(100deg,#e9fbff 5%,#83eaf4 42%,#a79bff 91%);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .lead{font-size:17px;line-height:1.8;color:#b1c1d5;max-width:600px}
+    .hero-actions{display:flex;gap:13px;flex-wrap:wrap;margin:29px 0 21px}
+    .btn{min-height:51px;display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:0 21px;border-radius:14px;border:1px solid transparent;font-weight:800;font-size:14px;transition:transform .18s,border-color .18s,background .18s;cursor:pointer}
+    .btn:hover{transform:translateY(-2px)}
+    .btn-primary{background:linear-gradient(115deg,#5dd8e8,#769dff);color:#06111f;box-shadow:0 13px 35px rgba(78,175,220,.18)}
+    .btn-secondary{background:rgba(255,255,255,.035);border-color:var(--line);color:#e7f1ff}
+    .fine{font-size:11px;color:#8195ae}
+    .hero-badges{display:flex;gap:17px;flex-wrap:wrap;margin-top:27px;color:#9eafc5;font-size:12px}
+    .hero-badges span{display:flex;align-items:center;gap:7px}
+    .check{color:var(--green);font-weight:900}
+    .visual{position:relative;z-index:1}
+    .visual-frame{padding:12px;border-radius:28px;border:1px solid rgba(164,201,239,.2);background:linear-gradient(145deg,rgba(255,255,255,.1),rgba(255,255,255,.025));box-shadow:0 32px 90px rgba(0,0,0,.46),0 0 70px rgba(68,151,222,.12);transform:perspective(1300px) rotateY(-5deg) rotateX(2deg)}
+    .visual-frame img{display:block;width:100%;border-radius:17px}
+    .float-chip{position:absolute;padding:12px 15px;border:1px solid rgba(177,207,238,.18);background:rgba(13,23,39,.88);backdrop-filter:blur(16px);border-radius:15px;box-shadow:var(--shadow);font-size:11px;color:#c0d0e4}
+    .float-chip strong{display:block;color:#f8fbff;font-size:13px}
+    .chip-one{right:-25px;top:13%}.chip-two{left:-27px;bottom:11%}
+    .section{padding:78px 0}
+    .section-head{text-align:center;max-width:710px;margin:0 auto 37px}
+    .kicker{color:var(--cyan);font-size:11px;letter-spacing:.17em;text-transform:uppercase;font-weight:800}
+    h2{font-size:clamp(30px,3.7vw,45px);letter-spacing:-.04em;line-height:1.15;margin:10px 0 13px}
+    .section-head p,.muted{color:var(--muted)}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-top:19px}
+    .stat{border:1px solid var(--line);background:rgba(255,255,255,.027);padding:19px;border-radius:17px;text-align:center}
+    .stat strong{display:block;font-size:24px;letter-spacing:-.04em;color:#f2fbff}
+    .stat span{font-size:11px;color:#92a6c0}
+    .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}
+    .feature{border:1px solid var(--line);background:linear-gradient(145deg,rgba(22,37,60,.68),rgba(12,19,33,.68));border-radius:21px;padding:24px;min-height:190px;transition:.2s}
+    .feature:hover{border-color:rgba(105,229,244,.38);transform:translateY(-3px)}
+    .feature-icon{width:44px;height:44px;display:grid;place-items:center;background:rgba(105,229,244,.1);border:1px solid rgba(105,229,244,.16);border-radius:14px;color:var(--cyan);font-size:21px;margin-bottom:15px}
+    .feature h3{margin:0 0 7px;font-size:17px}.feature p{margin:0;color:#9eb0c8;font-size:13px}
+    .gallery{display:grid;grid-template-columns:1.15fr 1fr;gap:17px;align-items:stretch}
+    .shot{padding:12px;border:1px solid var(--line);border-radius:22px;background:rgba(255,255,255,.035)}
+    .shot img{display:block;width:100%;height:auto;border-radius:13px;background:#0a111d}
+    .shot h3{margin:13px 5px 2px;font-size:16px}.shot p{margin:0 5px 5px;font-size:12px;color:#91a4bd}
+    .shot-stack{display:grid;gap:17px}
+    .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;counter-reset:step}
+    .step{counter-increment:step;border:1px solid var(--line);background:rgba(255,255,255,.03);border-radius:19px;padding:24px}
+    .step:before{content:"0" counter(step);display:block;color:var(--cyan);font-weight:900;font-size:13px;letter-spacing:.14em;margin-bottom:12px}
+    .step h3{margin:0 0 7px;font-size:16px}.step p{margin:0;color:#9eafc5;font-size:13px}
+    .download-panel{position:relative;overflow:hidden;border:1px solid rgba(108,198,244,.28);border-radius:28px;padding:36px;background:radial-gradient(circle at 89% 8%,rgba(119,104,255,.22),transparent 38%),linear-gradient(130deg,rgba(18,47,76,.95),rgba(12,19,34,.96));display:grid;grid-template-columns:1fr auto;align-items:center;gap:20px;box-shadow:var(--shadow)}
+    .download-panel h2{margin:0 0 10px}.download-panel p{margin:0;color:#a9bdd4;max-width:650px;font-size:14px}
+    .download-side{min-width:205px;text-align:center}
+    .version{font-size:11px;color:#a4bbd4;margin-top:11px}
+    .specs{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:19px}
+    .spec{padding:17px;border-radius:15px;background:rgba(255,255,255,.027);border:1px solid var(--line)}
+    .spec span{display:block;color:#849ab5;font-size:10px;text-transform:uppercase;letter-spacing:.1em}.spec strong{display:block;margin-top:5px;font-size:13px}
+    .creator{display:flex;align-items:center;gap:22px;max-width:820px;margin:auto;padding:27px;border:1px solid var(--line);border-radius:23px;background:rgba(255,255,255,.03)}
+    .avatar{width:74px;height:74px;flex:0 0 74px;border-radius:22px;display:grid;place-items:center;background:linear-gradient(145deg,#5bd8ea,#7e83ff);color:#07101d;font-size:24px;font-weight:950}
+    .creator h3{font-size:20px;margin:0 0 4px}.creator p{margin:0;color:#9eafc5;font-size:13px}
+    .faq{max-width:850px;margin:auto;display:grid;gap:10px}
+    details{border:1px solid var(--line);border-radius:15px;background:rgba(255,255,255,.025);padding:17px 19px}
+    summary{cursor:pointer;font-weight:750;font-size:14px;list-style:none}
+    summary::-webkit-details-marker{display:none}
+    summary:after{content:"＋";float:right;color:var(--cyan);font-size:18px}
+    details[open] summary:after{content:"−"}
+    details p{font-size:13px;color:#9eafc5;margin:12px 0 2px}
+    .footer{border-top:1px solid var(--line);padding:33px 0 42px;color:#8295ad;font-size:12px}
+    .footer-inner{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
+    .footer-links{display:flex;gap:18px;flex-wrap:wrap}
+    .footer a:hover{color:var(--cyan)}
+    .notice{font-size:11px;color:#879ab2;margin-top:13px;max-width:760px}
+    .mobile-only{display:none}
+    @media(max-width:900px){.hero{grid-template-columns:1fr;gap:35px;padding-top:57px}.visual{max-width:720px;margin:auto}.visual-frame{transform:none}.chip-one{right:0}.chip-two{left:0}.feature-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:640px){.wrap{width:min(100% - 30px,1180px)}.nav{height:68px}.menu-button{display:block}.navlinks{display:none;position:absolute;left:12px;right:12px;top:75px;padding:16px;background:#0c1627;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch;gap:3px}.navlinks.open{display:flex}.navlinks a{padding:12px}.nav-cta{text-align:center}.hero{padding:48px 0 40px;min-height:0}.lead{font-size:15px}.hero-actions{display:grid;grid-template-columns:1fr}.btn{width:100%}.hero-badges{gap:11px}.float-chip{display:none}.section{padding:58px 0}.stats{grid-template-columns:repeat(2,1fr)}.feature-grid{grid-template-columns:1fr}.gallery{grid-template-columns:1fr}.steps{grid-template-columns:1fr}.download-panel{grid-template-columns:1fr;padding:25px}.download-side{text-align:left}.download-side .btn{max-width:270px}.specs{grid-template-columns:repeat(2,1fr)}.creator{align-items:flex-start;padding:20px;gap:15px}.avatar{width:55px;height:55px;flex-basis:55px;border-radius:17px;font-size:18px}.footer-inner{align-items:flex-start;flex-direction:column}}
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+  </style>
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"SoftwareApplication",
+    "name":"Nexa TV Launcher",
+    "applicationCategory":"UtilitiesApplication",
+    "operatingSystem":"Android 5.0 and later",
+    "softwareVersion":"1.2.1",
+    "downloadUrl":"https://nexa-tv-launcher.vercel.app/download",
+    "description":"A customizable Android TV launcher with favourite apps, wallpaper controls, widgets and curated public Hindi/Urdu YouTube channel feeds.",
+    "author":{"@type":"Person","name":"Mirza Qasim","address":{"@type":"PostalAddress","addressLocality":"Faisalabad","addressCountry":"PK"}},
+    "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}
+  }
+  </script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="wrap nav">
+    <a class="brand" href="#top" aria-label="Nexa TV Launcher home">
+      <img src="/assets/nexa-mark.svg" alt="">
+      <span>NEXA<small>TV LAUNCHER</small></span>
+    </a>
+    <button class="menu-button" id="menuButton" aria-label="Open navigation" aria-expanded="false">☰</button>
+    <nav class="navlinks" id="navLinks" aria-label="Main navigation">
+      <a href="#features">Features</a>
+      <a href="#preview">Preview</a>
+      <a href="#install">Install</a>
+      <a href="#about">Creator</a>
+      <a class="nav-cta" href="/download">Download APK ↓</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap hero" id="top">
+    <div>
+      <div class="eyebrow"><span class="pulse"></span> Built for Android TV</div>
+      <h1>Your TV.<br><span class="gradient">Your world.</span></h1>
+      <p class="lead">Meet Nexa TV Launcher — a futuristic, customizable home screen for Android TV boxes and big screens. Keep your favourite apps close, shape your wallpaper, explore video channels and navigate comfortably with your TV remote.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="/download" id="heroDownload"><span>↓</span> Download latest APK</a>
+        <a class="btn btn-secondary" href="#preview">Explore the interface <span>↗</span></a>
+      </div>
+      <div class="fine">Free download · Android TV / TV boxes · Current version 1.2.1</div>
+      <div class="hero-badges">
+        <span><b class="check">✓</b> Remote-first navigation</span>
+        <span><b class="check">✓</b> Favourite apps</span>
+        <span><b class="check">✓</b> No YouTube API key</span>
+      </div>
+    </div>
+    <div class="visual">
+      <div class="visual-frame"><img src="/screenshots/home-preview.svg" alt="Nexa TV Launcher home screen interface preview"></div>
+      <div class="float-chip chip-one"><strong>01 · HOME</strong>Clean and personal</div>
+      <div class="float-chip chip-two"><strong>REMOTE READY</strong>Navigate with D-pad + OK</div>
+    </div>
+  </div>
+
+  <section class="wrap" aria-label="Launcher highlights">
+    <div class="stats">
+      <div class="stat"><strong>1.2.1</strong><span>Latest version</span></div>
+      <div class="stat"><strong>32</strong><span>Curated video channels</span></div>
+      <div class="stat"><strong>7</strong><span>Video categories</span></div>
+      <div class="stat"><strong>Free</strong><span>APK download</span></div>
+    </div>
+  </section>
+
+  <section class="section" id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="kicker">Designed for the big screen</div>
+        <h2>A smarter home for your TV</h2>
+        <p>Useful controls, clean surfaces and a focused layout — made to feel natural from the sofa with a remote in hand.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature"><div class="feature-icon">⌘</div><h3>Remote-first controls</h3><p>Use the D-pad, OK/Center and Back keys to move through the launcher and open apps.</p></article>
+        <article class="feature"><div class="feature-icon">★</div><h3>Your favourite apps</h3><p>Choose exactly which apps appear on Home. Your full installed-app library stays in Apps.</p></article>
+        <article class="feature"><div class="feature-icon">◈</div><h3>Make it yours</h3><p>Pick wallpapers, adjust image framing and dimming, and choose Glass, Dark or Light themes.</p></article>
+        <article class="feature"><div class="feature-icon">◷</div><h3>Movable clock</h3><p>Position the time and date widget on the Home strip with pointer or remote controls.</p></article>
+        <article class="feature"><div class="feature-icon">◎</div><h3>Futuristic widgets</h3><p>Choose an animated rotating Earth, an orbital reactor or turn the widget off.</p></article>
+        <article class="feature"><div class="feature-icon">▶</div><h3>Hindi & Urdu video feeds</h3><p>Browse public uploads from curated Pakistani and Indian channels without entering a YouTube Data API key.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="preview">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="kicker">Interface preview</div>
+        <h2>See the Nexa experience</h2>
+        <p>Visual previews of the launcher layout and feature areas. Final appearance can vary by TV resolution, theme and installed apps.</p>
+      </div>
+      <div class="gallery">
+        <article class="shot">
+          <img src="/screenshots/home-preview.svg" loading="lazy" alt="Illustrative Nexa TV Launcher Home interface with clock and favourite apps">
+          <h3>01 · Your Home</h3><p>Clock, widgets and the apps you choose.</p>
+        </article>
+        <div class="shot-stack">
+          <article class="shot">
+            <img src="/screenshots/youtube-preview.svg" loading="lazy" alt="Illustrative YouTube category and video card interface in Nexa">
+            <h3>02 · Video channels</h3><p>Pakistani and Indian Hindi/Urdu channel categories.</p>
+          </article>
+          <article class="shot">
+            <img src="/screenshots/settings-preview.svg" loading="lazy" alt="Illustrative Nexa launcher settings screen">
+            <h3>03 · Personalization</h3><p>Control recommendations, wallpaper and widgets.</p>
+          </article>
+        </div>
+      </div>
+      <p class="notice">Note: These are illustrative UI previews prepared for the product website, not photographs captured from a physical TV. Actual device screenshots can replace them after on-device testing.</p>
+    </div>
+  </section>
+
+  <section class="section" id="install">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="kicker">Get started</div>
+        <h2>Install in three simple steps</h2>
+        <p>Install Nexa as a normal Android app first. Keep your device's original launcher available while testing.</p>
+      </div>
+      <div class="steps">
+        <article class="step"><h3>Download the APK</h3><p>Open the download button on your TV browser, or download on a phone and transfer the APK to your TV box.</p></article>
+        <article class="step"><h3>Allow installation</h3><p>When Android asks, allow your browser or file manager to install apps from this source, then open the downloaded APK.</p></article>
+        <article class="step"><h3>Launch and test</h3><p>Open Nexa from Apps. Test D-pad, OK and Back navigation before choosing it as the default Home app.</p></article>
+      </div>
+      <div class="download-panel" style="margin-top:26px">
+        <div>
+          <div class="kicker">Latest build · Version 1.2.1</div>
+          <h2>Bring Nexa to your TV.</h2>
+          <p>Download the current Android TV launcher APK directly. This is a debug/test build; install it at your own discretion and keep the factory launcher enabled until testing is complete.</p>
+        </div>
+        <div class="download-side">
+          <a class="btn btn-primary" href="/download">↓ Download APK</a>
+          <div class="version">Free · Direct download · v1.2.1</div>
+        </div>
+      </div>
+      <div class="specs" aria-label="Application information">
+        <div class="spec"><span>Platform</span><strong>Android / Android TV</strong></div>
+        <div class="spec"><span>Minimum Android</span><strong>Android 5.0 (API 21)</strong></div>
+        <div class="spec"><span>Package</span><strong>com.qasim.nexa.launcher</strong></div>
+        <div class="spec"><span>Release type</span><strong>Debug / test APK</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="about">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="kicker">The creator</div>
+        <h2>Built with purpose, from Faisalabad</h2>
+      </div>
+      <div class="creator">
+        <div class="avatar" aria-hidden="true">MQ</div>
+        <div><h3>Mirza Qasim</h3><p>Creator and developer of Nexa TV Launcher · Faisalabad, Pakistan</p><p style="margin-top:8px">Product concept, interface design, Android development, feature implementation and release workflow — by Mirza Qasim.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="faq">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="kicker">Need to know</div><h2>Frequently asked questions</h2>
+      </div>
+      <div class="faq">
+        <details><summary>Is Nexa TV Launcher free?</summary><p>Yes. The website provides a free direct download of the current debug/test APK.</p></details>
+        <details><summary>Does it work with a TV remote?</summary><p>The interface is designed for D-pad, OK/Center and Back navigation. Actual behaviour can vary with device firmware and remote configuration.</p></details>
+        <details><summary>Do I need a YouTube API key?</summary><p>No API key is required for the curated public channel upload feeds included in version 1.2.1. These feeds show recent uploads from the included channel list, not global YouTube search or private personalized recommendations.</p></details>
+        <details><summary>Will Nexa replace my factory launcher?</summary><p>Installing Nexa does not uninstall or modify the factory launcher. Test Nexa first and keep the original launcher available so you can switch back.</p></details>
+        <details><summary>How will future APK updates work?</summary><p>The website uses a permanent download address. When a new version is released, the latest APK file can be replaced in the project repository and the website's download button will continue pointing to the same address.</p></details>
+        <details><summary>Is this an official Google or YouTube product?</summary><p>No. Nexa TV Launcher is an independent project by Mirza Qasim and is not affiliated with Google, Android, or YouTube.</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <div><strong style="color:#e9f4ff">NEXA TV LAUNCHER</strong><br>© <span id="year">2026</span> Mirza Qasim. All rights reserved.</div>
+    <div class="footer-links"><a href="#features">Features</a><a href="#install">Install guide</a><a href="#faq">FAQ</a><a href="/download">Download APK</a><a href="https://github.com/qasimtechlab/nexa-tv-launcher" target="_blank" rel="noopener">Source & releases ↗</a></div>
+  </div>
+  <div class="wrap notice">Nexa TV Launcher is an independent project. Android is a trademark of Google LLC. YouTube is a trademark of Google LLC. Product names are used only to describe compatibility and app destinations.</div>
+</footer>
+
+<script>
+(function(){
+  var menuButton=document.getElementById('menuButton');
+  var navLinks=document.getElementById('navLinks');
+  if(menuButton&&navLinks){
+    menuButton.addEventListener('click',function(){
+      var open=navLinks.classList.toggle('open');
+      menuButton.setAttribute('aria-expanded',String(open));
+      menuButton.textContent=open?'×':'☰';
+    });
+    navLinks.querySelectorAll('a').forEach(function(link){
+      link.addEventListener('click',function(){
+        navLinks.classList.remove('open');
+        menuButton.setAttribute('aria-expanded','false');
+        menuButton.textContent='☰';
+      });
+    });
+  }
+  document.getElementById('year').textContent=String(new Date().getFullYear());
+
+  // Spatial focus helper for TV remotes: D-pad arrows move to the nearest
+  // focusable control in that direction; Enter/OK activates normal links/buttons.
+  document.addEventListener('keydown',function(event){
+    var keys={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+    if(!keys[event.key])return;
+    var active=document.activeElement;
+    if(active&&active.tagName==='SUMMARY')return;
+    var candidates=Array.prototype.slice.call(document.querySelectorAll('a[href],button:not([disabled]),summary'))
+      .filter(function(el){return el.offsetWidth>0&&el.offsetHeight>0&&el.getAttribute('tabindex')!=='-1';});
+    var current=active&&active.getBoundingClientRect?active.getBoundingClientRect():null;
+    if(!current||(!active.matches('a[href],button,summary'))){
+      var first=candidates[0];if(first){first.focus();event.preventDefault();}return;
+    }
+    var cx=current.left+current.width/2,cy=current.top+current.height/2;
+    var dir=keys[event.key],best=null,bestScore=Infinity;
+    candidates.forEach(function(el){
+      if(el===active)return;
+      var r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+      var dx=x-cx,dy=y-cy;
+      var primary=dir[0]!==0?dx*dir[0]:dy*dir[1];
+      var cross=dir[0]!==0?Math.abs(dy):Math.abs(dx);
+      if(primary<=8)return;
+      var score=primary+cross*2.25;
+      if(score<bestScore){bestScore=score;best=el;}
+    });
+    if(best){best.focus({preventScroll:true});best.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});event.preventDefault();}
+  });
+})();
+</script>
+</body>
+</html>
