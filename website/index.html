@@ -158,7 +158,7 @@
         <a class="btn btn-primary" href="/download" id="heroDownload"><span>↓</span> Download latest APK</a>
         <a class="btn btn-secondary" href="#preview">Explore the interface <span>↗</span></a>
       </div>
-      <div class="fine">Free download · Android TV / TV boxes · Current version 1.2.1</div>
+      <div class="fine">Free download · Android TV / TV boxes · Current version <span data-release-version>1.2.1</span></div>
       <div class="hero-badges">
         <span><b class="check">✓</b> Remote-first navigation</span>
         <span><b class="check">✓</b> Favourite apps</span>
@@ -174,7 +174,7 @@
 
   <section class="wrap" aria-label="Launcher highlights">
     <div class="stats">
-      <div class="stat"><strong>1.2.1</strong><span>Latest version</span></div>
+      <div class="stat"><strong data-release-version>1.2.1</strong><span>Latest version</span></div>
       <div class="stat"><strong>32</strong><span>Curated video channels</span></div>
       <div class="stat"><strong>7</strong><span>Video categories</span></div>
       <div class="stat"><strong>Free</strong><span>APK download</span></div>
@@ -240,13 +240,13 @@
       </div>
       <div class="download-panel" style="margin-top:26px">
         <div>
-          <div class="kicker">Latest build · Version 1.2.1</div>
+          <div class="kicker">Latest build · Version <span data-release-version>1.2.1</span></div>
           <h2>Bring Nexa to your TV.</h2>
           <p>Download the current Android TV launcher APK directly. This is a debug/test build; install it at your own discretion and keep the factory launcher enabled until testing is complete.</p>
         </div>
         <div class="download-side">
           <a class="btn btn-primary" href="/download">↓ Download APK</a>
-          <div class="version">Free · Direct download · v1.2.1</div>
+          <div class="version">Free · Direct download · v<span data-release-version>1.2.1</span></div>
         </div>
       </div>
       <div class="specs" aria-label="Application information">
@@ -315,6 +315,18 @@
     });
   }
   document.getElementById('year').textContent=String(new Date().getFullYear());
+  // Latest release metadata is served through a same-origin Vercel rewrite.
+  fetch('/release.json',{cache:'no-store'}).then(function(response){
+    if(!response.ok)throw new Error('Release metadata unavailable');
+    return response.json();
+  }).then(function(release){
+    if(!release||!release.version)return;
+    document.querySelectorAll('[data-release-version]').forEach(function(node){
+      node.textContent=release.version;
+    });
+    var dateNode=document.getElementById('releaseDate');
+    if(dateNode&&release.releaseDate)dateNode.textContent=release.releaseDate;
+  }).catch(function(){ /* Keep the baked-in version as a safe fallback. */ });
 
   // Spatial focus helper for TV remotes: D-pad arrows move to the nearest
   // focusable control in that direction; Enter/OK activates normal links/buttons.
