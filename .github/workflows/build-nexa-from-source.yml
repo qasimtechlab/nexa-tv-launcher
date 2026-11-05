@@ -9,7 +9,7 @@ on:
 
 concurrency:
   group: nexa-tv-launcher-build
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -42,7 +42,7 @@ jobs:
       - name: Commit APK into repository
         run: |
           mkdir -p releases
-          cp NEXA-TV-Launcher/app/build/outputs/apk/debug/app-debug.apk releases/NEXA-TV-Launcher-v1.1.1-debug.apk
+          cp NEXA-TV-Launcher/app/build/outputs/apk/debug/app-debug.apk releases/NEXA-TV-Launcher-v1.2.0-debug.apk
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add releases/NEXA-TV-Launcher-v1.1.1-debug.apk
