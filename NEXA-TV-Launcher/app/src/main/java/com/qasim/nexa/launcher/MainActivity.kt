@@ -1145,7 +1145,7 @@ class MainActivity : Activity() {
             if (bitmap != null) {
                 synchronized(youtubeThumbnailCache) { youtubeThumbnailCache[imageUrl] = bitmap }
                 mainHandler.post {
-                    if (target.tag == imageUrl && target.isAttachedToWindow) {
+                    if (target.tag == imageUrl) {
                         target.setImageBitmap(bitmap)
                     }
                 }
