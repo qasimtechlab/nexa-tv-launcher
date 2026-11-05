@@ -1287,7 +1287,7 @@ class MainActivity : Activity() {
     }
 
     private fun renderAbout(parent: LinearLayout) {
-        parent.addView(infoCard("NEXA Smart TV Launcher\nVersion 1.0.0\nCreated by Mirza Qasim\nFaisalabad, Pakistan\n\nBuilt as an independent Android TV home experience."))
+        parent.addView(infoCard("NEXA Smart TV Launcher\nVersion 1.2.0\nCreated by Mirza Qasim\nFaisalabad, Pakistan\n\nBuilt as an independent Android TV home experience."))
     }
 
     private fun addSettingCard(parent: LinearLayout, title: String, subtitle: String, action: () -> Unit) {
@@ -1551,6 +1551,11 @@ class MainActivity : Activity() {
 
     private fun applyWallpaper() {
         if (!::wallpaperView.isInitialized) return
+        wallpaperView.scaleType = when (prefs.getString(KEY_WALLPAPER_SCALE, "fill")) {
+            "fit" -> ImageView.ScaleType.FIT_CENTER
+            "center" -> ImageView.ScaleType.CENTER
+            else -> ImageView.ScaleType.CENTER_CROP
+        }
         val uriText = prefs.getString(KEY_WALLPAPER, null)
         if (uriText.isNullOrBlank()) {
             val presetId = prefs.getString(KEY_BUILTIN_WALLPAPER, "aurora")
@@ -1566,16 +1571,90 @@ class MainActivity : Activity() {
             }
         }
         val theme = prefs.getString(KEY_THEME, THEME_GLASS)
+        val defaultDim = when (theme) {
+            THEME_LIGHT -> 10
+            THEME_DARK -> 72
+            else -> 48
+        }
+        val dimPercent = prefs.getInt(KEY_WALLPAPER_DIM, defaultDim).coerceIn(0, 85)
+        val overlay = when (theme) {
+            THEME_LIGHT -> Color.WHITE
+            THEME_DARK -> Color.BLACK
+            else -> Color.rgb(7, 17, 32)
+        }
         dimLayer.setBackgroundColor(
-            when (theme) {
-                THEME_LIGHT -> 0xBFEAF0F8.toInt()
-                THEME_DARK -> 0xD9081020.toInt()
-                else -> 0xA90A1425.toInt()
-            }
+            Color.argb(
+                (dimPercent * 255) / 100,
+                Color.red(overlay),
+                Color.green(overlay),
+                Color.blue(overlay)
+            )
         )
     }
 
-    private fun cycleTheme() {
+    private fun wallpaperScaleName(): String = when (prefs.getString(KEY_WALLPAPER_SCALE, "fill")) {
+        "fit" -> "Fit full image"
+        "center" -> "Center"
+        else -> "Fill screen"
+    }
+
+    private fun showWallpaperScaleDialog() {
+        val choices = arrayOf("Fill screen (crop edges)", "Fit full image", "Center at original scale")
+        val current = when (prefs.getString(KEY_WALLPAPER_SCALE, "fill")) {
+            "fit" -> 1
+            "center" -> 2
+            else -> 0
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Wallpaper framing")
+            .setSingleChoiceItems(choices, current) { dialog, which ->
+                val value = when (which) {
+                    1 -> "fit"
+                    2 -> "center"
+                    else -> "fill"
+                }
+                prefs.edit().putString(KEY_WALLPAPER_SCALE, value).apply()
+                dialog.dismiss()
+                applyWallpaper()
+                renderPage(PAGE_CUSTOMIZE)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showWallpaperDimDialog() {
+        val label = textView("Wallpaper overlay: ${prefs.getInt(KEY_WALLPAPER_DIM, 48)}%", 14, textLight, true)
+        val slider = SeekBar(this).apply {
+            max = 85
+            progress = prefs.getInt(KEY_WALLPAPER_DIM, 48).coerceIn(0, 85)
+        }
+        slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                label.text = "Wallpaper overlay: $progress%"
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(10), dp(24), dp(12))
+            addView(label)
+            addView(slider, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(8) })
+            addView(textView("Lower values keep the image vivid. Higher values make text and cards easier to read.", 12, textMuted))
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Wallpaper brightness")
+            .setView(panel)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Apply") { _, _ ->
+                prefs.edit().putInt(KEY_WALLPAPER_DIM, slider.progress).apply()
+                applyWallpaper()
+                renderPage(PAGE_CUSTOMIZE)
+            }
+            .show()
+    }
+
+        private fun cycleTheme() {
         val themes = listOf(THEME_GLASS, THEME_DARK, THEME_LIGHT)
         val current = prefs.getString(KEY_THEME, THEME_GLASS) ?: THEME_GLASS
         val next = themes[(themes.indexOf(current).coerceAtLeast(0) + 1) % themes.size]
