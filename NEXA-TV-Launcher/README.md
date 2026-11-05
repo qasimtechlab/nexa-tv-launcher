@@ -1,4 +1,4 @@
-# NEXA Smart TV Launcher — V1.1
+# NEXA Smart TV Launcher — V1.1.1
 
 Native Android TV launcher built with Kotlin and classic Android Views. Designed for older Android TV boxes and remote-control navigation.
 
@@ -15,7 +15,9 @@ Native Android TV launcher built with Kotlin and classic Android Views. Designed
 - Six built-in offline gradient wallpapers plus a local wallpaper picker.
 - Glass, dark and light appearance modes.
 - Accent colour selection and local preference persistence.
-- BixSigma AI chat using Google's Gemini Interactions API and the gemini-3.8-flash model.
+- BixSigma AI chat using Google's Gemini Interactions API.
+- Automatic fallback across Gemini 3.8 Flash, 3.7 Flash, 3.6 Flash and 3.5 Flash-Lite when a model is temporarily overloaded.
+- Exponential retry on temporary service errors and rate limits; the active model is remembered for conversation continuity.
 - Add, replace, test and remove a personal Gemini API key from the TV interface.
 - Gemini key stored in app-private preferences; Android Keystore AES-GCM encryption is used where supported.
 - YouTube Home shortcut to open the official YouTube app's signed-in recommendation feed.
@@ -40,7 +42,7 @@ The **My YouTube Home** card launches the official YouTube app so that a signed-
 
 Configured for minSdk 21, compileSdk 35, JDK 17, Android Gradle Plugin 8.7.3, Kotlin 2.1.20 and Gradle 8.9. Cloud builds run unit tests, Android lint and assemble a debug APK.
 
-A successful build is also copied to `releases/NEXA-TV-Launcher-v1.1.0-debug.apk` in this repository and uploaded as a GitHub Actions artifact. This is a debug APK for testing, not a signed public release. Test on the target P291 TV box before selecting NEXA as the permanent default Home app.
+A successful build is also copied to `releases/NEXA-TV-Launcher-v1.1.1-debug.apk` in this repository and uploaded as a GitHub Actions artifact. This is a debug APK for testing, not a signed public release. Test on the target P291 TV box before selecting NEXA as the permanent default Home app.
 
 ## Safe installation and testing
 

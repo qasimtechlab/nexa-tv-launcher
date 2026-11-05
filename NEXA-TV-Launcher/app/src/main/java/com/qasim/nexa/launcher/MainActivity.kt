@@ -354,7 +354,7 @@ class MainActivity : Activity() {
         }
         logo.addView(textView("◇", 44, accent, true))
         logo.addView(textView("BixSigma AI", 29, textLight, true))
-        logo.addView(textView("Powered by Gemini · ${GeminiApi.MODEL}", 13, textMuted))
+        logo.addView(textView("Gemini 3.8 Flash · Automatic model fallback enabled", 13, textMuted))
         parent.addView(logo, LinearLayout.LayoutParams(-1, dp(164)).apply { bottomMargin = dp(16) })
 
         parent.addView(sectionTitle("Activate your AI assistant"))
@@ -454,7 +454,7 @@ class MainActivity : Activity() {
         val newChat = navButton("↻   New chat", false) {
             aiMessages.clear()
             aiStatusMessage = null
-            prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).apply()
+            prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).remove(KEY_GEMINI_MODEL).apply()
             renderPage(PAGE_AI)
         }
         actions.addView(newChat, LinearLayout.LayoutParams(-2, dp(46)).apply { rightMargin = dp(10) })
@@ -519,7 +519,7 @@ class MainActivity : Activity() {
                 } else {
                     try {
                         keyVault.save(value)
-                        prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).apply()
+                        prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).remove(KEY_GEMINI_MODEL).apply()
                         aiMessages.clear()
                         aiStatusMessage = "Gemini key saved. Tap Test Gemini connection to verify it."
                         renderPage(PAGE_AI)
@@ -544,10 +544,14 @@ class MainActivity : Activity() {
         renderPage(PAGE_AI)
         aiExecutor.execute {
             try {
-                GeminiApi.send(key, "Reply with exactly: BixSigma AI is connected and ready.")
+                val result = GeminiApi.send(key, "Reply with exactly: BixSigma AI is connected and ready.")
                 mainHandler.post {
+                    prefs.edit()
+                        .putString(KEY_GEMINI_MODEL, result.model)
+                        .remove(KEY_GEMINI_INTERACTION_ID)
+                        .apply()
                     aiBusy = false
-                    aiStatusMessage = "Connection successful. BixSigma AI is ready."
+                    aiStatusMessage = "Connection successful: ${GeminiApi.modelName(result.model)} is ready."
                     if (currentPage == PAGE_AI) renderPage(PAGE_AI)
                     toast("Gemini connection successful")
                 }
@@ -575,19 +579,39 @@ class MainActivity : Activity() {
         if (aiBusy) return
 
         val previousId = prefs.getString(KEY_GEMINI_INTERACTION_ID, null)
+        val preferredModel = prefs.getString(KEY_GEMINI_MODEL, GeminiApi.MODEL) ?: GeminiApi.MODEL
         aiMessages.add("user" to prompt)
+        val fallbackContext = aiMessages.dropLast(1).takeLast(12).joinToString("\n") { (role, text) ->
+            (if (role == "assistant") "BixSigma AI: " else "User: ") + text
+        }.let { history ->
+            if (history.isBlank()) prompt
+            else "Continue this conversation using the same context.\n$history\nUser: $prompt\nBixSigma AI:"
+        }
         aiBusy = true
-        aiStatusMessage = null
+        aiStatusMessage = "Connecting to Gemini… automatic fallback is enabled."
         renderPage(PAGE_AI)
 
         aiExecutor.execute {
             try {
-                val result = GeminiApi.send(key, prompt, previousId)
+                val result = GeminiApi.send(
+                    apiKey = key,
+                    prompt = prompt,
+                    previousInteractionId = previousId,
+                    preferredModel = preferredModel,
+                    fallbackPrompt = fallbackContext
+                )
                 mainHandler.post {
                     aiMessages.add("assistant" to result.text)
-                    prefs.edit().putString(KEY_GEMINI_INTERACTION_ID, result.interactionId).apply()
+                    prefs.edit()
+                        .putString(KEY_GEMINI_INTERACTION_ID, result.interactionId)
+                        .putString(KEY_GEMINI_MODEL, result.model)
+                        .apply()
                     aiBusy = false
-                    aiStatusMessage = null
+                    aiStatusMessage = if (result.model != preferredModel) {
+                        "Google's ${GeminiApi.modelName(preferredModel)} is busy. NEXA switched to ${GeminiApi.modelName(result.model)} automatically."
+                    } else {
+                        null
+                    }
                     if (currentPage == PAGE_AI) renderPage(PAGE_AI)
                 }
             } catch (error: Exception) {
@@ -1051,6 +1075,7 @@ String): TextView = textView(title, 21, textLight, true).apply {
         private const val KEY_WALLPAPER = "wallpaper_uri"
         private const val KEY_BUILTIN_WALLPAPER = "builtin_wallpaper"
         private const val KEY_GEMINI_INTERACTION_ID = "gemini_interaction_id"
+        private const val KEY_GEMINI_MODEL = "gemini_model"
         private const val KEY_YOUTUBE_INTERESTS = "youtube_interests"
         private const val DEFAULT_YOUTUBE_INTERESTS = "AI & Technology|Android Tips|Gaming|Science & Learning|Islamic Content|Entertainment"
         private const val KEY_THEME = "theme"

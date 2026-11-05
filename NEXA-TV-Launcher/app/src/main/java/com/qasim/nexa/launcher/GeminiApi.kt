@@ -2,28 +2,134 @@ package com.qasim.nexa.launcher
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
 internal data class GeminiReply(
     val text: String,
-    val interactionId: String
+    val interactionId: String,
+    val model: String
 )
 
+private class GeminiHttpException(
+    val statusCode: Int,
+    val apiStatus: String,
+    override val message: String
+) : Exception(message) {
+    val canRetryOrFallback: Boolean
+        get() {
+            val normalized = apiStatus.uppercase()
+            val lower = message.lowercase()
+            return statusCode == 500 || statusCode == 503 ||
+                normalized in setOf("UNAVAILABLE", "SERVICE_UNAVAILABLE", "API_ERROR", "RATE_LIMIT_EXCEEDED", "TOO_MANY_REQUESTS") ||
+                (statusCode == 429 && (
+                    normalized in setOf("RATE_LIMIT_EXCEEDED", "TOO_MANY_REQUESTS") ||
+                        lower.contains("rate limit") ||
+                        lower.contains("too many requests") ||
+                        lower.contains("high demand") ||
+                        lower.contains("overload")
+                    )) ||
+                lower.contains("high demand") ||
+                lower.contains("demand spikes") ||
+                lower.contains("temporarily overloaded") ||
+                lower.contains("temporarily unavailable")
+        }
+}
+
 /**
- * Small dependency-free client for Google's Gemini Interactions REST API.
- * Requests run on the activity's background executor, never on the UI thread.
+ * Dependency-free Gemini Interactions REST client with transient-error retry
+ * and stable Flash model fallback. Calls are made off the UI thread.
  */
 internal object GeminiApi {
     const val MODEL = "gemini-3.8-flash"
-    private const val ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions"
 
-    fun send(apiKey: String, prompt: String, previousInteractionId: String? = null): GeminiReply {
+    private const val ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions"
+    private const val MAX_RETRIES_PER_MODEL = 2
+
+    // Stable Flash model endpoints. Actual access and quotas are determined by the API project.
+    private val fallbackModels = listOf(
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite"
+    )
+
+    fun modelName(model: String): String = when (model) {
+        "gemini-3.8-flash" -> "Gemini 3.8 Flash"
+        "gemini-3.7-flash" -> "Gemini 3.7 Flash"
+        "gemini-3.6-flash" -> "Gemini 3.6 Flash"
+        "gemini-3.5-flash-lite" -> "Gemini 3.5 Flash-Lite"
+        else -> model
+    }
+
+    fun send(
+        apiKey: String,
+        prompt: String,
+        previousInteractionId: String? = null,
+        preferredModel: String = MODEL,
+        fallbackPrompt: String? = null
+    ): GeminiReply {
         require(apiKey.isNotBlank()) { "Add your Gemini API key first." }
         require(prompt.isNotBlank()) { "Write a message first." }
 
+        val supportedModels = listOf(MODEL) + fallbackModels
+        val firstModel = preferredModel.takeIf { it in supportedModels } ?: MODEL
+        val candidates = (listOf(firstModel) + supportedModels).distinct()
+        var lastError: Exception? = null
+
+        for (model in candidates) {
+            val canContinuePreviousConversation = model == preferredModel
+            val requestPrompt = if (canContinuePreviousConversation || fallbackPrompt.isNullOrBlank()) {
+                prompt
+            } else {
+                fallbackPrompt
+            }
+
+            for (attempt in 0..MAX_RETRIES_PER_MODEL) {
+                try {
+                    return sendOnce(
+                        apiKey = apiKey,
+                        model = model,
+                        prompt = requestPrompt,
+                        previousInteractionId = if (canContinuePreviousConversation) previousInteractionId else null
+                    )
+                } catch (error: GeminiHttpException) {
+                    lastError = error
+                    if (!error.canRetryOrFallback) throw IllegalStateException(error.message, error)
+
+                    if (attempt < MAX_RETRIES_PER_MODEL) {
+                        // Exponential backoff: 1s, then 2s. Only the background worker sleeps.
+                        Thread.sleep(1_000L shl attempt)
+                    } else {
+                        // Move to the next stable Flash model after the retry budget is used.
+                        break
+                    }
+                } catch (error: IOException) {
+                    lastError = error
+                    if (attempt < MAX_RETRIES_PER_MODEL) {
+                        Thread.sleep(1_000L shl attempt)
+                    } else {
+                        break
+                    }
+                }
+            }
+        }
+
+        val detail = lastError?.message?.takeIf { it.isNotBlank() }
+        throw IllegalStateException(
+            detail ?: "All available Gemini Flash models are temporarily unavailable. Please try again shortly.",
+            lastError
+        )
+    }
+
+    private fun sendOnce(
+        apiKey: String,
+        model: String,
+        prompt: String,
+        previousInteractionId: String?
+    ): GeminiReply {
         val body = JSONObject()
-            .put("model", MODEL)
+            .put("model", model)
             .put("input", prompt)
             .put(
                 "system_instruction",
@@ -36,7 +142,7 @@ internal object GeminiApi {
                 "generation_config",
                 JSONObject()
                     .put("thinking_level", "low")
-                    .put("max_output_tokens", 1200)
+                    .put("max_output_tokens", 2400)
             )
 
         if (!previousInteractionId.isNullOrBlank()) {
@@ -71,15 +177,18 @@ internal object GeminiApi {
             }
 
             if (status !in 200..299) {
-                val message = response.optJSONObject("error")?.optString("message")
+                val errorObject = response.optJSONObject("error")
+                val message = errorObject?.optString("message")
                     ?.takeIf { it.isNotBlank() }
                     ?: when (status) {
-                        400 -> "Gemini rejected the request. Check the key and model access."
+                        400 -> "Gemini rejected the request. Check the request and model access."
                         401, 403 -> "API key is invalid or does not have Gemini API access."
-                        429 -> "Gemini free-tier limit reached. Try again later or check your AI Studio quota."
+                        429 -> "Gemini quota or rate limit reached. Check your AI Studio Usage and Rate Limits."
+                        503 -> "${modelName(model)} is temporarily overloaded. Trying another Gemini Flash model."
                         else -> "Gemini request failed (HTTP $status)."
                     }
-                throw IllegalStateException(message)
+                val apiStatus = errorObject?.optString("status").orEmpty()
+                throw GeminiHttpException(status, apiStatus, message)
             }
 
             val replyText = extractText(response)
@@ -90,7 +199,7 @@ internal object GeminiApi {
                 throw IllegalStateException("Gemini returned an empty response. Please try again.")
             }
 
-            return GeminiReply(replyText.trim(), interactionId)
+            return GeminiReply(replyText.trim(), interactionId, model)
         } finally {
             connection.disconnect()
         }
@@ -99,17 +208,19 @@ internal object GeminiApi {
     private fun extractText(response: JSONObject): String {
         response.optString("output_text").takeIf { it.isNotBlank() }?.let { return it }
 
+        val output = response.optJSONArray("steps") ?: response.optJSONArray("outputs") ?: JSONArray()
         val result = StringBuilder()
-        val output = response.optJSONArray("output") ?: response.optJSONArray("steps") ?: JSONArray()
         for (i in 0 until output.length()) {
             val item = output.optJSONObject(i) ?: continue
             val content = item.optJSONArray("content") ?: continue
             for (j in 0 until content.length()) {
                 val part = content.optJSONObject(j) ?: continue
-                val text = part.optString("text")
-                if (text.isNotBlank()) {
-                    if (result.isNotEmpty()) result.append("\n")
-                    result.append(text)
+                if (part.optString("type") == "text" || part.has("text")) {
+                    val text = part.optString("text")
+                    if (text.isNotBlank()) {
+                        if (result.isNotEmpty()) result.append("\n")
+                        result.append(text)
+                    }
                 }
             }
         }
