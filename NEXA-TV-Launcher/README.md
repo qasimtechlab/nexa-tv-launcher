@@ -11,10 +11,10 @@ Native Android TV launcher built with Kotlin and classic Android Views. Designed
 - Clean Home layout that can hide the large introductory panels and make the wallpaper the focus.
 - Home screen Favorites row shows only apps explicitly added by the user.
 - Long-press the remote's OK/Center button on an app to open the styled application options menu.
-- App options include open, add/remove Favorites, move up/down in the library, and request uninstall through Android's system confirmation.
+- App options include open, add/remove Favorites, move up/down or enter an exact numbered position in the library, and request uninstall through Android's system confirmation.
 - Full installed-app library supports Grid and line-wise Rows layouts.
 - Manual app ordering is shared by the app library and Favorites row.
-- Live clock and date widget on Home. Drag it with a pointer/touch input or move it with LEFT/RIGHT on a remote; CENTER recenters it.
+- Live clock and date widget on Home. Drag it with a pointer/touch input or move it with LEFT/RIGHT on a remote; the clock can also be centered with a preset.
 
 ## YouTube video cards
 
