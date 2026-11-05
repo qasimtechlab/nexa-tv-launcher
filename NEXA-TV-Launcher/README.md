@@ -1,4 +1,4 @@
-# NEXA Smart TV Launcher — V1.2.0
+# NEXA Smart TV Launcher — V1.2.1
 
 Native Android TV launcher built with Kotlin and classic Android Views. Designed for older Android TV boxes and remote-control navigation.
 
@@ -16,26 +16,20 @@ Native Android TV launcher built with Kotlin and classic Android Views. Designed
 - Manual app ordering is shared by the app library and Favorites row.
 - Live clock and date widget on Home. Drag it with a pointer/touch input or move it with LEFT/RIGHT on a remote; the clock can also be centered with a preset.
 
-## YouTube video cards
+## YouTube video cards — API-free Hindi/Urdu channel feeds
 
-- Category-based public video discovery using YouTube Data API v3.
-- Real video thumbnails, titles and channel names displayed in horizontal TV-friendly cards.
-- Selecting a card opens that exact video in the installed official YouTube app when available.
-- Edit up to six topics such as Gaming, AI & Technology, Education or Science.
-- NEXA gives a topic higher local priority when the user opens a video from it. This is a lightweight on-device interest score, not a copy of YouTube's private recommendation model.
-- **My YouTube Home** still opens the official YouTube app so the signed-in user can access YouTube's own account-based feed.
+- No YouTube Data API key, Gemini key reuse, Google Cloud project or OAuth setup is required for the curated public video feed.
+- NEXA includes **27 curated Pakistani and Indian channels across seven categories**: Pakistani Dramas, Indian Movies, Indian TV & Dramas, Hindi/Urdu Technology, Hindi/Urdu Gaming, Pakistani Vlogs and Indian Vlogs.
+- The initial list includes official broadcaster/movie-library channels such as HUM TV, ARY Digital, Har Pal Geo, Green TV, SET India, Colors TV, Goldmines, Shemaroo Movies, Ultra Movie Parlour and Rajshri, plus Hindi/Urdu tech, gaming and vlog creators.
+- NEXA reads each configured channel's public YouTube Atom uploads feed, merges recent uploads, removes duplicate videos and sorts by publish date.
+- Cards show video title, channel name and a thumbnail derived from the YouTube video ID. Selecting a card opens that exact video in the installed YouTube app when available.
+- Categories can be enabled or disabled from **YouTube → Choose video categories**. Topic opens adjust only NEXA's local category order; this is not YouTube's private recommendation algorithm.
+- **Settings → YouTube Recommendations** can switch the Home video section ON or OFF. OFF hides the entire recommendation section; the user's explicitly selected Favorite Apps row and the rest of the Home layout remain unchanged.
+- **Open my official YouTube Home** launches the installed YouTube app for the signed-in user's own recommendations, watch history and subscriptions.
 
-### YouTube API key setup
+### YouTube feed limitations
 
-The video cards need a separate Google Cloud API key; a Gemini API key cannot be used for YouTube Data API requests.
-
-1. Open [Google Cloud Credentials](https://console.cloud.google.com/apis/credentials).
-2. Select or create a project.
-3. Enable **YouTube Data API v3** in the API Library.
-4. Create an API key and restrict it to YouTube Data API v3.
-5. In NEXA, open **YouTube → Connect YouTube video feed** and paste the key.
-
-NEXA requests only public video search results and thumbnails. Public video metadata can use an API key; private account data requires OAuth authorization. The official YouTube app remains the place for private, signed-in recommendations. Google's API quota and key restrictions apply. See [YouTube API authentication](https://developers.google.com/youtube/data/guides/authentication) and [quota information](https://developers.google.com/youtube/data/determine_quota_cost).
+The public Atom feed is a channel-upload feed, not a global YouTube search endpoint. NEXA can only show recent public uploads from channel IDs included in its curated catalogue. It cannot discover every Pakistani or Indian channel automatically, read private account watch history, or reproduce YouTube's personal recommendation engine. Channel uploads, video availability, copyright permissions and regional playback restrictions can change; movie and drama cards are shown only when the channel itself publicly exposes those uploads. The catalogue is a curated starter library and can be expanded after channel IDs and upload feeds are verified.
 
 ## Wallpapers and widgets
 
@@ -61,7 +55,7 @@ NEXA requests only public video search results and thumbnails. Public video meta
 Configured for minSdk 21, compileSdk 35, JDK 17, Android Gradle Plugin 8.7.3, Kotlin 2.1.20 and Gradle 8.9. Cloud builds run unit tests, Android lint and assemble a debug APK.
 
 The generated test APK is copied to:
-`releases/NEXA-TV-Launcher-v1.2.0-debug.apk`
+`releases/NEXA-TV-Launcher-v1.2.1-debug.apk`
 
 It is also uploaded as the `NEXA-TV-Launcher-debug-APK` artifact in GitHub Actions. This is a debug APK for testing, not a signed public release.
 
@@ -72,7 +66,7 @@ It is also uploaded as the `NEXA-TV-Launcher-debug-APK` artifact in GitHub Actio
 3. Test LEFT/RIGHT/UP/DOWN/CENTER/BACK remote navigation.
 4. Test opening and returning from several apps.
 5. Test long-press OK on an app, Favorites, moving an app and uninstall confirmation.
-6. Test YouTube API key setup, categories, thumbnails and video launching.
+6. Test the recommendations ON/OFF switch, category feeds, thumbnails and video launching without entering an API key.
 7. Test built-in wallpapers, custom wallpaper selection, framing and overlay controls.
 8. Test the draggable clock and each futuristic widget.
 9. Only after the checks pass, choose NEXA as the default Home app.
@@ -81,7 +75,7 @@ It is also uploaded as the `NEXA-TV-Launcher-debug-APK` artifact in GitHub Actio
 ## Current limitations
 
 - YouTube topic ranking uses local interest selections and card opens; it does not access private watch history or reproduce YouTube's account-level recommendation algorithm.
-- Public YouTube video cards require the user's own YouTube Data API v3 key and remain subject to Google's quota and regional/API restrictions.
+- Curated YouTube cards use public channel Atom feeds; they are limited to the channel IDs bundled in NEXA and do not provide global search or account-personalized recommendations.
 - Gemini voice input, microphone activation, AI-generated speech and screensaver controls are not implemented.
 - System apps protected by the TV firmware may not be uninstallable through Android's normal package installer.
 - Wallpaper picker availability depends on TV firmware and available document-provider apps.
