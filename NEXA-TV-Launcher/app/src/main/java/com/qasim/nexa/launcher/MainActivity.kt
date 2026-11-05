@@ -365,36 +365,54 @@ class MainActivity : Activity() {
             if (clock.width > 0 && strip.width > 0) {
                 val reserved = if (widgetStyle != WIDGET_OFF && placement == "side") dp(142) else dp(12)
                 val maxLeft = (strip.width - clock.width - reserved).coerceAtLeast(0)
-                val saved = prefs.getInt(KEY_CLOCK_POSITION_DP, -1)
-                val desired = when {
-                    saved == -2 -> maxLeft / 2
-                    saved < 0 -> 0
-                    else -> dp(saved)
+                val maxTop = (strip.height - clock.height).coerceAtLeast(0)
+                val savedX = prefs.getInt(KEY_CLOCK_POSITION_DP, -1)
+                val savedY = prefs.getInt(KEY_CLOCK_POSITION_Y_DP, -1)
+                val desiredX = when {
+                    savedX == -2 -> maxLeft / 2
+                    savedX < 0 -> 0
+                    else -> dp(savedX)
                 }
-                clockParams.leftMargin = desired.coerceIn(0, maxLeft)
+                val desiredY = when {
+                    savedY == -2 -> maxTop / 2
+                    savedY < 0 -> dp(26)
+                    else -> dp(savedY)
+                }
+                clockParams.leftMargin = desiredX.coerceIn(0, maxLeft)
+                clockParams.topMargin = desiredY.coerceIn(0, maxTop)
                 clock.layoutParams = clockParams
             }
         }
 
         var dragStartX = 0f
+        var dragStartY = 0f
         var startLeft = 0
+        var startTop = 0
         clock.setOnTouchListener { view, event ->
             val params = view.layoutParams as FrameLayout.LayoutParams
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     dragStartX = event.rawX
+                    dragStartY = event.rawY
                     startLeft = params.leftMargin
+                    startTop = params.topMargin
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val reserved = if (widgetStyle != WIDGET_OFF && placement == "side") dp(142) else dp(12)
                     val maxLeft = (strip.width - view.width - reserved).coerceAtLeast(0)
+                    val maxTop = (strip.height - view.height).coerceAtLeast(0)
                     params.leftMargin = (startLeft + (event.rawX - dragStartX).toInt()).coerceIn(0, maxLeft)
+                    params.topMargin = (startTop + (event.rawY - dragStartY).toInt()).coerceIn(0, maxTop)
                     view.layoutParams = params
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    prefs.edit().putInt(KEY_CLOCK_POSITION_DP, (params.leftMargin / resources.displayMetrics.density).roundToInt()).apply()
+                    val density = resources.displayMetrics.density
+                    prefs.edit()
+                        .putInt(KEY_CLOCK_POSITION_DP, (params.leftMargin / density).roundToInt())
+                        .putInt(KEY_CLOCK_POSITION_Y_DP, (params.topMargin / density).roundToInt())
+                        .apply()
                     true
                 }
                 else -> false
@@ -409,6 +427,7 @@ class MainActivity : Activity() {
             val params = view.layoutParams as FrameLayout.LayoutParams
             val reserved = if (widgetStyle != WIDGET_OFF && placement == "side") dp(142) else dp(12)
             val maxLeft = (strip.width - view.width - reserved).coerceAtLeast(0)
+            val maxTop = (strip.height - view.height).coerceAtLeast(0)
             when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
                     params.leftMargin = (params.leftMargin - dp(18)).coerceAtLeast(0)
@@ -416,13 +435,24 @@ class MainActivity : Activity() {
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
                     params.leftMargin = (params.leftMargin + dp(18)).coerceAtMost(maxLeft)
                 }
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    params.topMargin = (params.topMargin - dp(18)).coerceAtLeast(0)
+                }
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    params.topMargin = (params.topMargin + dp(18)).coerceAtMost(maxTop)
+                }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    params.leftMargin = (maxLeft / 2)
+                    params.leftMargin = maxLeft / 2
+                    params.topMargin = maxTop / 2
                 }
                 else -> return@setOnKeyListener false
             }
             view.layoutParams = params
-            prefs.edit().putInt(KEY_CLOCK_POSITION_DP, (params.leftMargin / resources.displayMetrics.density).roundToInt()).apply()
+            val density = resources.displayMetrics.density
+            prefs.edit()
+                .putInt(KEY_CLOCK_POSITION_DP, (params.leftMargin / density).roundToInt())
+                .putInt(KEY_CLOCK_POSITION_Y_DP, (params.topMargin / density).roundToInt())
+                .apply()
             true
         }
 
@@ -536,7 +566,10 @@ class MainActivity : Activity() {
             renderPage(PAGE_WIDGETS)
         }
         addSettingCard(parent, "⌚   Center the clock widget", "Reset its Home position; you can drag it to any other position") {
-            prefs.edit().putInt(KEY_CLOCK_POSITION_DP, -2).apply()
+            prefs.edit()
+                .putInt(KEY_CLOCK_POSITION_DP, -2)
+                .putInt(KEY_CLOCK_POSITION_Y_DP, -2)
+                .apply()
             renderPage(PAGE_HOME)
         }
 
@@ -594,7 +627,10 @@ class MainActivity : Activity() {
             renderPage(PAGE_WIDGETS)
         }
         addSettingCard(parent, "⌚   Center clock widget", "Place the live clock in the middle; drag it on Home to reposition") {
-            prefs.edit().putInt(KEY_CLOCK_POSITION_DP, -2).apply()
+            prefs.edit()
+                .putInt(KEY_CLOCK_POSITION_DP, -2)
+                .putInt(KEY_CLOCK_POSITION_Y_DP, -2)
+                .apply()
             renderPage(PAGE_WIDGETS)
         }
         addSettingCard(parent, "←   Back to Home", "Preview your selected widgets") { renderPage(PAGE_HOME) }
@@ -1848,6 +1884,7 @@ String): TextView = textView(title, 21, textLight, true).apply {
         private const val KEY_WALLPAPER_DIM = "wallpaper_dim"
         private const val KEY_CLEAN_HOME = "clean_home_layout"
         private const val KEY_CLOCK_POSITION_DP = "clock_position_dp"
+        private const val KEY_CLOCK_POSITION_Y_DP = "clock_position_y_dp"
         private const val KEY_FUTURE_WIDGET = "future_widget_style"
         private const val KEY_FUTURISTIC_POSITION = "futuristic_widget_position"
         private const val WIDGET_OFF = "off"
