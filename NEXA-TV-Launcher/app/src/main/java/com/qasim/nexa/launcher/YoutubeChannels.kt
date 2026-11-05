@@ -41,6 +41,9 @@ internal object YoutubeChannelCatalog {
             YoutubeChannel("Total Gaming", "UC5c9VlYTSvBSCaoMu_GI6gQ"),
             YoutubeChannel("CarryisLive", "UC0IWRLai-BAwci_e9MylNGw"),
             YoutubeChannel("Star Anonymous", "UCueAzFc4gCEJfAjQy1kcN3g"),
+            YoutubeChannel("AS Gaming", "UCMrvxKTx9hLhZcOvJkYOnAw"),
+            YoutubeChannel("Gyan Gaming", "UChXi_PlJkRMPYFQBOJ3MpxA"),
+            YoutubeChannel("Lokesh Gamer", "UCdQPeeJ0qGK6wWBiEJWcdsQ"),
             YoutubeChannel("PUBG MOBILE Pakistan Official", "UCr5-mYyayqz7iQR3TzcoDng")
         ),
         "Pakistani Vlogs" to listOf(
