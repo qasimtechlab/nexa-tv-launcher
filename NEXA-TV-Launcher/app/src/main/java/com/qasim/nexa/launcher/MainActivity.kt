@@ -336,7 +336,7 @@ class MainActivity : Activity() {
         clock.addView(time)
         clock.addView(date, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(1) })
 
-        val widgetStyle = prefs.getString(KEY_FUTURISTIC_WIDGET, WIDGET_GLOBE) ?: WIDGET_GLOBE
+        val widgetStyle = prefs.getString(KEY_FUTURE_WIDGET, WIDGET_GLOBE) ?: WIDGET_GLOBE
         val placement = prefs.getString(KEY_FUTURISTIC_POSITION, "side") ?: "side"
         if (widgetStyle != WIDGET_OFF) {
             val art = FuturisticWidgetView(this, widgetStyle).apply {
