@@ -1,1 +1,20 @@
-{"redirects":[{"source":"/download","destination":"https://raw.githubusercontent.com/qasimtechlab/nexa-tv-launcher/main/releases/NEXA-TV-Launcher-latest.apk","permanent":false},{"source":"/latest.apk","destination":"https://raw.githubusercontent.com/qasimtechlab/nexa-tv-launcher/main/releases/NEXA-TV-Launcher-latest.apk","permanent":false}]}
+{
+  "redirects": [
+    {
+      "source": "/download",
+      "destination": "https://raw.githubusercontent.com/qasimtechlab/nexa-tv-launcher/main/releases/NEXA-TV-Launcher-latest.apk",
+      "permanent": false
+    },
+    {
+      "source": "/latest.apk",
+      "destination": "https://raw.githubusercontent.com/qasimtechlab/nexa-tv-launcher/main/releases/NEXA-TV-Launcher-latest.apk",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/release.json",
+      "destination": "https://raw.githubusercontent.com/qasimtechlab/nexa-tv-launcher/main/releases/latest.json"
+    }
+  ]
+}
