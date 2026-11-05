@@ -50,7 +50,8 @@ internal object YoutubeChannelCatalog {
             YoutubeChannel("Ducky Bhai", "UC_c-RTowPbIlzMkIa_O7s6Q"),
             YoutubeChannel("Maaz Safder World", "UCz0M2pV4jOUUQ88lOd2q08A"),
             YoutubeChannel("Shahveer Jafry", "UChIrj5Qb5V-TZIRrk0Df-Uw"),
-            YoutubeChannel("Zaid Ali T", "UCVBXum_ntfgHgHCOYtGOmEw")
+            YoutubeChannel("Zaid Ali T", "UCVBXum_ntfgHgHCOYtGOmEw"),
+            YoutubeChannel("Rabeeca Khan", "UCfPL_q6AOLp0o8sP7t6FbXA")
         ),
         "Indian Vlogs" to listOf(
             YoutubeChannel("Sourav Joshi Vlogs", "UCjvgGbPPn-FgYeguc5nxG4A"),
