@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#122b4a"/><stop offset=".55" stop-color="#0b1427"/><stop offset="1" stop-color="#211b49"/></linearGradient><radialGradient id="glow"><stop stop-color="#256b9e" stop-opacity=".65"/><stop offset="1" stop-color="#10192c" stop-opacity="0"/></radialGradient><linearGradient id="card" x2="0" y2="1"><stop stop-color="#263d5c"/><stop offset="1" stop-color="#16243b"/></linearGradient></defs>
+<rect width="1280" height="720" rx="22" fill="url(#bg)"/><circle cx="1030" cy="140" r="390" fill="url(#glow)"/><circle cx="220" cy="500" r="330" fill="url(#glow)" opacity=".55"/>
+<text x="62" y="70" font-family="Arial" font-size="42" font-weight="800" fill="#f4f8ff" letter-spacing="4">NEXA</text><text x="65" y="93" font-family="Arial" font-size="11" fill="#9db6d4" letter-spacing="3">SMART TV EXPERIENCE</text>
+<text x="1090" y="60" font-family="Arial" font-size="34" fill="#ffffff" text-anchor="end">10:45</text><text x="1090" y="83" font-family="Arial" font-size="13" fill="#9fb5d0" text-anchor="end">THURSDAY · 05 NOV</text>
+<rect x="62" y="128" width="1156" height="2" fill="#93b9e0" opacity=".18"/>
+<text x="64" y="189" font-family="Arial" font-size="16" fill="#74e1f0" font-weight="700" letter-spacing="2">YOUR TV. YOUR WORLD.</text><text x="64" y="232" font-family="Arial" font-size="35" fill="#f5f8ff" font-weight="700">Everything, beautifully in one place.</text>
+<text x="64" y="267" font-family="Arial" font-size="15" fill="#9eb3cf">A clean, customizable home for your entertainment.</text>
+<text x="64" y="334" font-family="Arial" font-size="18" fill="#ffffff" font-weight="700">YOUR FAVOURITE APPS</text>
+<g font-family="Arial" text-anchor="middle">
+<rect x="64" y="358" width="153" height="120" rx="18" fill="url(#card)" stroke="#80d9ee" stroke-opacity=".55" stroke-width="2"/><circle cx="140" cy="405" r="26" fill="#f04b4b"/><path d="M132 390v30l25-15z" fill="#fff"/><text x="140" y="458" font-size="14" fill="#f7fbff">YouTube</text>
+<rect x="233" y="358" width="153" height="120" rx="18" fill="url(#card)" stroke="#a8bde0" stroke-opacity=".2"/><circle cx="309" cy="405" r="26" fill="#59c9f0"/><path d="M295 411l14-24 14 24h-28" fill="none" stroke="#09213a" stroke-width="4"/><text x="309" y="458" font-size="14" fill="#f7fbff">Browser</text>
+<rect x="402" y="358" width="153" height="120" rx="18" fill="url(#card)" stroke="#a8bde0" stroke-opacity=".2"/><circle cx="478" cy="405" r="26" fill="#9b85ff"/><path d="M464 397h28v16h-28zM470 390v7m16-7v7" fill="none" stroke="#10152e" stroke-width="3"/><text x="478" y="458" font-size="14" fill="#f7fbff">Games</text>
+<rect x="571" y="358" width="153" height="120" rx="18" fill="url(#card)" stroke="#a8bde0" stroke-opacity=".2"/><circle cx="647" cy="405" r="26" fill="#68dfb2"/><path d="M635 393l24 24m0-24l-24 24" stroke="#063e35" stroke-width="5"/><text x="647" y="458" font-size="14" fill="#f7fbff">Settings</text>
+</g>
+<text x="64" y="540" font-family="Arial" font-size="19" fill="#f7fbff" font-weight="700">VIDEOS PICKED FOR YOU</text>
+<g font-family="Arial">
+<rect x="64" y="563" width="250" height="106" rx="14" fill="#243b57"/><rect x="64" y="563" width="250" height="69" rx="14" fill="#1d4772"/><circle cx="188" cy="597" r="20" fill="#53d1e2" opacity=".65"/><text x="80" y="651" fill="#fff" font-size="13">Technology channel · Latest upload</text>
+<rect x="332" y="563" width="250" height="106" rx="14" fill="#243b57"/><rect x="332" y="563" width="250" height="69" rx="14" fill="#49386e"/><path d="M425 610q33-55 66 0" fill="none" stroke="#b3a0ff" stroke-width="5"/><text x="348" y="651" fill="#fff" font-size="13">Drama & entertainment</text>
+<rect x="600" y="563" width="250" height="106" rx="14" fill="#243b57"/><rect x="600" y="563" width="250" height="69" rx="14" fill="#3e5d51"/><circle cx="725" cy="597" r="22" fill="#70e1af" opacity=".7"/><text x="616" y="651" fill="#fff" font-size="13">Gaming · New videos</text>
+<rect x="868" y="563" width="250" height="106" rx="14" fill="#243b57"/><rect x="868" y="563" width="250" height="69" rx="14" fill="#714c42"/><path d="M968 612l24-37 24 37z" fill="#f0bb91"/><text x="884" y="651" fill="#fff" font-size="13">Vlogs · Latest uploads</text>
+</g>
+<rect x="1080" y="22" width="150" height="28" rx="14" fill="#0c172a" stroke="#81d8e7" stroke-opacity=".45"/><text x="1155" y="41" font-family="Arial" font-size="10" fill="#85e6ef" text-anchor="middle" letter-spacing="1.4">UI PREVIEW</text>
+</svg>
