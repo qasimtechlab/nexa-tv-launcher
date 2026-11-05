@@ -33,6 +33,7 @@ internal object YoutubeChannelCatalog {
             YoutubeChannel("Technology Gyan", "UC1tVU8H153ZFO9eRsxdJlhA"),
             YoutubeChannel("Gyan Therapy", "UCS261lQDXjMvc8Jck-2CQEg"),
             YoutubeChannel("Techno Ruhez", "UC8vlDm5xvbxOrCvdu9UNOiA"),
+            YoutubeChannel("Tech Burner", "UCXUJJNoP1QupwsYIWFXmsZg"),
             YoutubeChannel("Hasnain Technical", "UCxE248p2-PE6PK-AATg9mcg")
         ),
         "Hindi/Urdu Gaming" to listOf(
