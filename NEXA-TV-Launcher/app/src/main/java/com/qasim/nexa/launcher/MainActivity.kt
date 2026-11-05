@@ -109,9 +109,21 @@ class MainActivity : Activity() {
         super.onResume()
         applyImmersiveMode()
         if (::contentHost.isInitialized) {
-            // Refresh app list when the user returns from another application.
+            // Refresh the visible launchable app list and Home feed after returning from an app.
             if (currentPage == PAGE_APPS || currentPage == PAGE_HOME) renderPage(currentPage)
         }
+    }
+
+    override fun onPause() {
+        mainHandler.removeCallbacks(widgetFrameTicker)
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacks(widgetFrameTicker)
+        aiExecutor.shutdownNow()
+        youtubeExecutor.shutdownNow()
+        super.onDestroy()
     }
 
     private fun applyImmersiveMode() {
@@ -1775,11 +1787,27 @@ String): TextView = textView(title, 21, textLight, true).apply {
         private const val PAGE_AI = "ai"
         private const val PAGE_YOUTUBE = "youtube"
         private const val PAGE_SETTINGS = "settings"
+        private const val PAGE_WIDGETS = "widgets"
         private const val KEY_WALLPAPER = "wallpaper_uri"
         private const val KEY_BUILTIN_WALLPAPER = "builtin_wallpaper"
         private const val KEY_GEMINI_INTERACTION_ID = "gemini_interaction_id"
         private const val KEY_GEMINI_MODEL = "gemini_model"
         private const val KEY_YOUTUBE_INTERESTS = "youtube_interests"
+        private const val KEY_YOUTUBE_API_KEY = "youtube_data_api_key"
+        private const val KEY_YOUTUBE_ACTIVE_TOPIC = "youtube_active_topic"
+        private const val KEY_YOUTUBE_SCORES = "youtube_interest_scores"
+        private const val KEY_FAVORITE_APPS = "favorite_apps"
+        private const val KEY_APP_ORDER = "app_manual_order"
+        private const val KEY_APPS_ROWS = "apps_rows_layout"
+        private const val KEY_WALLPAPER_SCALE = "wallpaper_scale"
+        private const val KEY_WALLPAPER_DIM = "wallpaper_dim"
+        private const val KEY_CLEAN_HOME = "clean_home_layout"
+        private const val KEY_CLOCK_POSITION_DP = "clock_position_dp"
+        private const val KEY_FUTURE_WIDGET = "future_widget_style"
+        private const val KEY_FUTURISTIC_POSITION = "futuristic_widget_position"
+        private const val WIDGET_OFF = "off"
+        private const val WIDGET_GLOBE = "globe"
+        private const val WIDGET_REACTOR = "reactor"
         private const val DEFAULT_YOUTUBE_INTERESTS = "AI & Technology|Android Tips|Gaming|Science & Learning|Islamic Content|Entertainment"
         private const val KEY_THEME = "theme"
         private const val KEY_ACCENT = "accent"
