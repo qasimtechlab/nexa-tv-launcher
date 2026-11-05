@@ -1421,6 +1421,9 @@ class MainActivity : Activity() {
         addOption("↓   Move app down", "Move it later in the Apps library and Favorites row") {
             moveAppInLibrary(app, 1)
         }
+        addOption("↕   Move to position", "Choose the exact place in the Apps library") {
+            showMoveAppDialog(app)
+        }
         addOption("▣   Uninstall app", "Open Android's system uninstall confirmation") {
             requestAppUninstall(app)
         }
@@ -1469,6 +1472,43 @@ class MainActivity : Activity() {
         prefs.edit().putString(KEY_APP_ORDER, apps.joinToString("|") { it.packageName }).apply()
         renderPage(if (currentPage == PAGE_HOME) PAGE_HOME else PAGE_APPS)
         toast("${app.label} moved")
+    }
+
+    private fun showMoveAppDialog(app: LaunchableApp) {
+        val apps = getLaunchableApps().toMutableList()
+        val currentPosition = apps.indexOfFirst { it.packageName == app.packageName }
+        if (currentPosition < 0) return
+        val input = EditText(this).apply {
+            hint = "Enter new position"
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setSingleLine(true)
+            setText((currentPosition + 1).toString())
+            setSelection(text.length)
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+        }
+        val holder = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(8), dp(22), 0)
+            addView(textView("Enter the new position. Position 1 means the first app.", 13, textMuted))
+            addView(input, LinearLayout.LayoutParams(-1, dp(58)).apply { topMargin = dp(10) })
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Move application")
+            .setView(holder)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Move") { _, _ ->
+                val newPosition = input.text.toString().toIntOrNull()
+                if (newPosition == null || newPosition !in 1..apps.size) {
+                    toast("Enter a position from 1 to " + apps.size)
+                } else {
+                    val moved = apps.removeAt(currentPosition)
+                    apps.add((newPosition - 1).coerceIn(0, apps.size), moved)
+                    prefs.edit().putString(KEY_APP_ORDER, apps.joinToString("|") { it.packageName }).apply()
+                    renderPage(if (currentPage == PAGE_HOME) PAGE_HOME else PAGE_APPS)
+                    toast("Application position updated")
+                }
+            }
+            .show()
     }
 
     private fun requestAppUninstall(app: LaunchableApp) {
