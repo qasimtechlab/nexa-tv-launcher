@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://nexa-tv-launcher.vercel.app/sitemap.xml
