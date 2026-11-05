@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ResolveInfo
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -15,6 +16,7 @@ import android.os.Looper
 import android.text.InputType
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
@@ -26,12 +28,17 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
+import android.widget.SeekBar
+import android.widget.TextClock
 import android.widget.TextView
 import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import kotlin.math.roundToInt
+import org.json.JSONObject
 
 private data class LaunchableApp(
     val packageName: String,
@@ -54,6 +61,23 @@ class MainActivity : Activity() {
     private val pickerRequest = 4112
     private lateinit var keyVault: GeminiKeyVault
     private val aiExecutor = Executors.newSingleThreadExecutor()
+    private val youtubeExecutor = Executors.newFixedThreadPool(3)
+    private val youtubeVideoCache = ConcurrentHashMap<String, List<YoutubeVideo>>()
+    private val youtubeFetchInProgress = mutableSetOf<String>()
+    private val youtubeErrors = mutableMapOf<String, String>()
+    private val youtubeThumbnailCache = object : LinkedHashMap<String, Bitmap>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>?): Boolean = size > 12
+    }
+    private var futuristicWidgetView: FuturisticWidgetView? = null
+    private val widgetFrameTicker = object : Runnable {
+        override fun run() {
+            val widget = futuristicWidgetView
+            if (currentPage == PAGE_HOME && widget != null) {
+                widget.advanceFrame()
+                mainHandler.postDelayed(this, 70L)
+            }
+        }
+    }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val aiMessages = mutableListOf<Pair<String, String>>()
     private var aiBusy = false
@@ -113,6 +137,8 @@ class MainActivity : Activity() {
 
     private fun renderPage(page: String) {
         currentPage = page
+        mainHandler.removeCallbacks(widgetFrameTicker)
+        futuristicWidgetView = null
         contentHost.removeAllViews()
         applyWallpaper()
 
@@ -140,6 +166,7 @@ class MainActivity : Activity() {
             PAGE_AI -> buildAi(column)
             PAGE_YOUTUBE -> buildYoutube(column)
             PAGE_SETTINGS -> buildSettings(column)
+            PAGE_WIDGETS -> buildWidgets(column)
             else -> buildHome(column)
         }
 
@@ -172,14 +199,21 @@ class MainActivity : Activity() {
             gravity = Gravity.END
         }
         val date = SimpleDateFormat("EEE, dd MMM", Locale.getDefault()).format(Date())
-        val time = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
-        right.addView(textView(time, 20, textLight, true).apply { gravity = Gravity.END })
+        val time = TextClock(this).apply {
+            format12Hour = "hh:mm a"
+            format24Hour = "HH:mm"
+            textSize = 20f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setTextColor(if (prefsOrDefaultTheme() == THEME_LIGHT) Color.rgb(22, 35, 53) else textLight)
+            gravity = Gravity.END
+        }
+        right.addView(time)
         right.addView(textView(date, 12, textMuted).apply { gravity = Gravity.END })
         row.addView(right)
         parent.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(22) })
     }
 
-    private fun addNavigation(parent: LinearLayout, selected: String) {
+        private fun addNavigation(parent: LinearLayout, selected: String) {
         val horizontal = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -191,7 +225,8 @@ class MainActivity : Activity() {
             Triple("Customize", PAGE_CUSTOMIZE, "✦"),
             Triple("YouTube", PAGE_YOUTUBE, "▶"),
             Triple("BixSigma AI", PAGE_AI, "◇"),
-            Triple("Settings", PAGE_SETTINGS, "⚙")
+            Triple("Settings", PAGE_SETTINGS, "⚙"),
+            Triple("Widgets", PAGE_WIDGETS, "◉")
         )
         entries.forEach { (label, page, symbol) ->
             val button = navButton("$symbol   $label", page == selected) { renderPage(page) }
@@ -206,97 +241,244 @@ class MainActivity : Activity() {
     }
 
     private fun buildHome(parent: LinearLayout) {
-        val hero = glassCard(true).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(30), dp(24), dp(30), dp(24))
-        }
-        hero.addView(textView("YOUR TV. YOUR WORLD.", 12, accent, true))
-        hero.addView(textView("Everything, beautifully\nin one place.", 31, textLight, true).apply {
-            setPadding(0, dp(8), 0, dp(8))
-        })
-        hero.addView(textView("A clean, customizable home for your entertainment.", 15, textMuted))
-        parent.addView(hero, LinearLayout.LayoutParams(-1, dp(190)).apply { bottomMargin = dp(22) })
+        buildHomeWidgetStrip(parent)
+        val cleanHome = prefs.getBoolean(KEY_CLEAN_HOME, false)
 
-        parent.addView(sectionTitle("Explore NEXA"))
-        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val cards = listOf(
-            Triple("▦", "Applications", "Open your installed apps"),
-            Triple("✦", "Personalize", "Wallpaper, themes and colors"),
-            Triple("◇", "BixSigma AI", "Your optional AI space"),
-            Triple("⚙", "Settings", "Manage your launcher")
-        )
-        cards.forEachIndexed { index, item ->
-            val destination = listOf(PAGE_APPS, PAGE_CUSTOMIZE, PAGE_AI, PAGE_SETTINGS)[index]
-            val card = actionCard(item.first, item.second, item.third) { renderPage(destination) }
-            actions.addView(card, LinearLayout.LayoutParams(dp(228), dp(132)).apply {
-                rightMargin = dp(14)
+        if (!cleanHome) {
+            val hero = glassCard(true).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(30), dp(22), dp(30), dp(22))
+            }
+            hero.addView(textView("YOUR TV. YOUR WORLD.", 12, accent, true))
+            hero.addView(textView("Everything, beautifully\nin one place.", 29, textLight, true).apply {
+                setPadding(0, dp(7), 0, dp(7))
             })
-        }
-        val actionScroll = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_NEVER
-        }
-        actionScroll.addView(actions)
-        parent.addView(actionScroll, LinearLayout.LayoutParams(-1, dp(144)).apply { bottomMargin = dp(22) })
+            hero.addView(textView("A clean, customizable home for your entertainment.", 14, textMuted))
+            parent.addView(hero, LinearLayout.LayoutParams(-1, dp(166)).apply { bottomMargin = dp(18) })
 
-        parent.addView(sectionTitle("Your applications"))
-        val apps = getLaunchableApps().take(5)
-        if (apps.isEmpty()) {
-            parent.addView(infoCard("No launchable apps were discovered. Open Apps to refresh, or check Android package visibility."))
+            parent.addView(sectionTitle("Explore NEXA"))
+            val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            val cards = listOf(
+                Triple("▦", "Applications", "Open your installed apps"),
+                Triple("✦", "Personalize", "Wallpaper, themes and colors"),
+                Triple("◇", "BixSigma AI", "Your optional AI space"),
+                Triple("⚙", "Settings", "Manage your launcher")
+            )
+            cards.forEachIndexed { index, item ->
+                val destination = listOf(PAGE_APPS, PAGE_CUSTOMIZE, PAGE_AI, PAGE_SETTINGS)[index]
+                actions.addView(actionCard(item.first, item.second, item.third) {
+                    renderPage(destination)
+                }, LinearLayout.LayoutParams(dp(220), dp(126)).apply { rightMargin = dp(12) })
+            }
+            val actionScroll = HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled = false
+                overScrollMode = View.OVER_SCROLL_NEVER
+            }
+            actionScroll.addView(actions)
+            parent.addView(actionScroll, LinearLayout.LayoutParams(-1, dp(138)).apply { bottomMargin = dp(16) })
+        }
+
+        parent.addView(sectionTitle("Your favorites"))
+        val favorites = getLaunchableApps().filter { isFavoritePackage(it.packageName) }
+        if (favorites.isEmpty()) {
+            parent.addView(infoCard("Your Home screen only shows apps you mark as favorites. Open Apps, highlight an app and hold OK on the remote to add it here."))
         } else {
             val rail = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            apps.forEach { app -> rail.addView(appTile(app), LinearLayout.LayoutParams(dp(172), dp(142)).apply { rightMargin = dp(12) }) }
-            val railScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }
-            railScroll.addView(rail)
-            parent.addView(railScroll, LinearLayout.LayoutParams(-1, dp(152)))
+            favorites.forEach { app ->
+                rail.addView(appTile(app), LinearLayout.LayoutParams(dp(172), dp(142)).apply {
+                    rightMargin = dp(12)
+                })
+            }
+            val scroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }
+            scroll.addView(rail)
+            parent.addView(scroll, LinearLayout.LayoutParams(-1, dp(152)).apply { bottomMargin = dp(16) })
         }
 
         buildHomeYoutubeRail(parent)
     }
 
-    private fun buildApps(parent: LinearLayout) {
+    private fun buildHomeWidgetStrip(parent: LinearLayout) {
+        val strip = FrameLayout(this).apply {
+            clipChildren = false
+            clipToPadding = false
+        }
+        val clock = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(18), dp(12), dp(18), dp(12))
+            background = cardDrawable(false, true)
+            isFocusable = true
+            isClickable = true
+            contentDescription = "Movable time and date widget. Drag to reposition or use left and right on the remote."
+            setOnFocusChangeListener { view, focused -> view.background = cardDrawable(focused, true) }
+        }
+        val time = TextClock(this).apply {
+            format12Hour = "hh:mm"
+            format24Hour = "HH:mm"
+            textSize = 36f
+            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+            setTextColor(if (prefsOrDefaultTheme() == THEME_LIGHT) Color.rgb(22, 35, 53) else textLight)
+        }
+        val date = textView(SimpleDateFormat("EEEE, dd MMMM", Locale.getDefault()).format(Date()), 12, textMuted)
+        clock.addView(time)
+        clock.addView(date, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(1) })
+
+        val widgetStyle = prefs.getString(KEY_FUTURISTIC_WIDGET, WIDGET_GLOBE) ?: WIDGET_GLOBE
+        val placement = prefs.getString(KEY_FUTURISTIC_POSITION, "side") ?: "side"
+        if (widgetStyle != WIDGET_OFF) {
+            val art = FuturisticWidgetView(this, widgetStyle).apply {
+                isFocusable = true
+                isClickable = true
+                contentDescription = if (widgetStyle == WIDGET_REACTOR) "Animated orbital reactor widget" else "Animated rotating Earth widget"
+                setOnClickListener { renderPage(PAGE_WIDGETS) }
+                setOnFocusChangeListener { view, focused ->
+                    view.alpha = if (focused) 1f else 0.9f
+                }
+            }
+            val artParams = FrameLayout.LayoutParams(dp(126), dp(126)).apply {
+                gravity = if (placement == "center") Gravity.CENTER else Gravity.RIGHT or Gravity.CENTER_VERTICAL
+            }
+            strip.addView(art, artParams)
+            futuristicWidgetView = art
+        }
+
+        val clockParams = FrameLayout.LayoutParams(dp(272), dp(92)).apply {
+            gravity = Gravity.TOP or Gravity.LEFT
+            topMargin = dp(26)
+        }
+        strip.addView(clock, clockParams)
+
+        clock.post {
+            if (clock.width > 0 && strip.width > 0) {
+                val reserved = if (widgetStyle != WIDGET_OFF && placement == "side") dp(142) else dp(12)
+                val maxLeft = (strip.width - clock.width - reserved).coerceAtLeast(0)
+                val saved = prefs.getInt(KEY_CLOCK_POSITION_DP, -1)
+                clockParams.leftMargin = (if (saved < 0) 0 else dp(saved)).coerceIn(0, maxLeft)
+                clock.layoutParams = clockParams
+            }
+        }
+
+        var dragStartX = 0f
+        var startLeft = 0
+        clock.setOnTouchListener { view, event ->
+            val params = view.layoutParams as FrameLayout.LayoutParams
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    dragStartX = event.rawX
+                    startLeft = params.leftMargin
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val reserved = if (widgetStyle != WIDGET_OFF && placement == "side") dp(142) else dp(12)
+                    val maxLeft = (strip.width - view.width - reserved).coerceAtLeast(0)
+                    params.leftMargin = (startLeft + (event.rawX - dragStartX).toInt()).coerceIn(0, maxLeft)
+                    view.layoutParams = params
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    prefs.edit().putInt(KEY_CLOCK_POSITION_DP, (params.leftMargin / resources.displayMetrics.density).roundToInt()).apply()
+                    true
+                }
+                else -> false
+            }
+        }
+        clock.setOnLongClickListener {
+            toast("Clock widget selected — drag it, or use LEFT/RIGHT on your remote.")
+            true
+        }
+        clock.setOnKeyListener { view, keyCode, event ->
+            if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+            val params = view.layoutParams as FrameLayout.LayoutParams
+            val reserved = if (widgetStyle != WIDGET_OFF && placement == "side") dp(142) else dp(12)
+            val maxLeft = (strip.width - view.width - reserved).coerceAtLeast(0)
+            when (keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    params.leftMargin = (params.leftMargin - dp(18)).coerceAtLeast(0)
+                }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    params.leftMargin = (params.leftMargin + dp(18)).coerceAtMost(maxLeft)
+                }
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                    params.leftMargin = (maxLeft / 2)
+                }
+                else -> return@setOnKeyListener false
+            }
+            view.layoutParams = params
+            prefs.edit().putInt(KEY_CLOCK_POSITION_DP, (params.leftMargin / resources.displayMetrics.density).roundToInt()).apply()
+            true
+        }
+
+        parent.addView(strip, LinearLayout.LayoutParams(-1, dp(154)).apply { bottomMargin = dp(18) })
+        if (futuristicWidgetView != null) {
+            mainHandler.removeCallbacks(widgetFrameTicker)
+            mainHandler.post(widgetFrameTicker)
+        }
+    }
+
+        private fun buildApps(parent: LinearLayout) {
         parent.addView(sectionTitle("Application library"))
-        parent.addView(textView("Select an application with your TV remote to open it.", 14, textMuted).apply {
-            setPadding(0, 0, 0, dp(18))
+        parent.addView(textView("Select an app to open it. Hold the remote's OK button for its options menu.", 14, textMuted).apply {
+            setPadding(0, 0, 0, dp(12))
         })
+        val rowsMode = prefs.getBoolean(KEY_APPS_ROWS, false)
+        addSettingCard(
+            parent,
+            if (rowsMode) "▤   Layout: Rows" else "▦   Layout: Grid",
+            "Change how installed applications are arranged"
+        ) {
+            prefs.edit().putBoolean(KEY_APPS_ROWS, !rowsMode).apply()
+            renderPage(PAGE_APPS)
+        }
+
         val apps = getLaunchableApps()
         if (apps.isEmpty()) {
             parent.addView(infoCard("No compatible launchable applications were found on this device."))
             return
         }
-        val screenWidthDp = resources.configuration.screenWidthDp
-        val columns = when {
-            screenWidthDp < 780 -> 2
-            screenWidthDp < 1150 -> 3
-            else -> 4
-        }
-        val tileWidth = (screenWidthDp / columns - 24).coerceIn(150, 220)
-        val grid = GridLayout(this).apply {
-            columnCount = columns
-            alignmentMode = GridLayout.ALIGN_BOUNDS
-            useDefaultMargins = false
-        }
-        apps.forEach { app ->
-            val tile = appTile(app)
-            val lp = GridLayout.LayoutParams().apply {
-                width = dp(tileWidth)
-                height = dp(142)
-                setMargins(dp(5), dp(5), dp(12), dp(12))
+
+        if (rowsMode) {
+            val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            apps.forEach { app ->
+                list.addView(appTile(app, true), LinearLayout.LayoutParams(-1, dp(82)).apply {
+                    bottomMargin = dp(9)
+                })
             }
-            grid.addView(tile, lp)
+            parent.addView(list, LinearLayout.LayoutParams(-1, -2))
+        } else {
+            val screenWidthDp = resources.configuration.screenWidthDp
+            val columns = when {
+                screenWidthDp < 780 -> 2
+                screenWidthDp < 1150 -> 3
+                else -> 4
+            }
+            val tileWidth = (screenWidthDp / columns - 24).coerceIn(150, 220)
+            val grid = GridLayout(this).apply {
+                columnCount = columns
+                alignmentMode = GridLayout.ALIGN_BOUNDS
+                useDefaultMargins = false
+            }
+            apps.forEach { app ->
+                val tile = appTile(app)
+                val lp = GridLayout.LayoutParams().apply {
+                    width = dp(tileWidth)
+                    height = dp(142)
+                    setMargins(dp(5), dp(5), dp(12), dp(12))
+                }
+                grid.addView(tile, lp)
+            }
+            parent.addView(grid, LinearLayout.LayoutParams(-1, -2))
         }
-        parent.addView(grid, LinearLayout.LayoutParams(-1, -2))
     }
-    
-    private fun buildCustomize(parent: LinearLayout) {
+
+        private fun buildCustomize(parent: LinearLayout) {
         parent.addView(sectionTitle("Make NEXA yours"))
-        parent.addView(textView("Personal settings are stored on this TV. No account is required.", 14, textMuted).apply {
-            setPadding(0, 0, 0, dp(18))
+        parent.addView(textView("Personal settings are saved on this TV. No account is required.", 14, textMuted).apply {
+            setPadding(0, 0, 0, dp(16))
         })
 
         parent.addView(sectionTitle("Built-in NEXA wallpapers"))
-        parent.addView(textView("Choose an offline wallpaper, or use your own image below.", 13, textMuted).apply {
+        parent.addView(textView("Choose an offline wallpaper, or use your own gaming, space or landscape image.", 13, textMuted).apply {
             setPadding(0, 0, 0, dp(10))
         })
         val wallpaperRail = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -312,19 +494,96 @@ class MainActivity : Activity() {
         wallpaperScroll.addView(wallpaperRail)
         parent.addView(wallpaperScroll, LinearLayout.LayoutParams(-1, dp(152)).apply { bottomMargin = dp(14) })
 
-        addSettingCard(parent, "▧   Choose my own wallpaper", "Use an image saved on your device") { openWallpaperPicker() }
+        addSettingCard(parent, "▧   Choose my own wallpaper", "Use a photo, gaming wallpaper or any image stored on this device") { openWallpaperPicker() }
+        addSettingCard(parent, "▣   Wallpaper framing: ${wallpaperScaleName()}", "Fill screen, fit full image or center the wallpaper") { showWallpaperScaleDialog() }
+        addSettingCard(parent, "◐   Wallpaper overlay: ${prefs.getInt(KEY_WALLPAPER_DIM, 48)}%", "Adjust readability without making the wallpaper look messy") { showWallpaperDimDialog() }
         addSettingCard(parent, "◐   Change appearance", "Current theme: ${themeName()}") { cycleTheme() }
         addSettingCard(parent, "✦   Accent color", "Current accent: ${accentName()}") { cycleAccent() }
-        addSettingCard(parent, "↺   Reset personalization", "Restore the original NEXA appearance") {
-            prefs.edit().remove(KEY_WALLPAPER).remove(KEY_BUILTIN_WALLPAPER)
-                .putString(KEY_THEME, THEME_GLASS).putInt(KEY_ACCENT, 0).apply()
+        addSettingCard(
+            parent,
+            if (prefs.getBoolean(KEY_CLEAN_HOME, false)) "✓   Clean Home layout: ON" else "□   Clean Home layout: OFF",
+            "Hide the large intro and shortcut panels for a minimal wallpaper-first screen"
+        ) {
+            prefs.edit().putBoolean(KEY_CLEAN_HOME, !prefs.getBoolean(KEY_CLEAN_HOME, false)).apply()
+            renderPage(PAGE_CUSTOMIZE)
+        }
+        addSettingCard(
+            parent,
+            if (prefs.getBoolean(KEY_APPS_ROWS, false)) "▤   Apps layout: Rows" else "▦   Apps layout: Grid",
+            "Choose line-wise rows or a compact app grid"
+        ) {
+            prefs.edit().putBoolean(KEY_APPS_ROWS, !prefs.getBoolean(KEY_APPS_ROWS, false)).apply()
+            renderPage(PAGE_CUSTOMIZE)
+        }
+        addSettingCard(parent, "◉   Futuristic Widgets settings", "Add an animated rotating Earth or orbital reactor to Home") {
+            renderPage(PAGE_WIDGETS)
+        }
+        addSettingCard(parent, "⌚   Center the clock widget", "Reset its Home position; you can drag it to any other position") {
+            prefs.edit().remove(KEY_CLOCK_POSITION_DP).apply()
+            renderPage(PAGE_HOME)
+        }
+
+        addSettingCard(parent, "↺   Reset wallpaper and appearance", "Restore the original NEXA look and default wallpaper") {
+            prefs.edit()
+                .remove(KEY_WALLPAPER)
+                .remove(KEY_BUILTIN_WALLPAPER)
+                .remove(KEY_WALLPAPER_SCALE)
+                .remove(KEY_WALLPAPER_DIM)
+                .putBoolean(KEY_CLEAN_HOME, false)
+                .putString(KEY_THEME, THEME_GLASS)
+                .putInt(KEY_ACCENT, 0)
+                .apply()
             applyWallpaper()
             renderPage(PAGE_CUSTOMIZE)
             toast("Personalization reset")
         }
     }
 
-    private fun buildSettings(parent: LinearLayout) {
+    private fun buildWidgets(parent: LinearLayout) {
+        parent.addView(sectionTitle("Futuristic Widgets"))
+        parent.addView(infoCard("Choose one offline animated widget for your NEXA Home screen. The artwork is drawn on the TV itself and does not need an internet connection."))
+        val selected = prefs.getString(KEY_FUTURE_WIDGET, WIDGET_GLOBE) ?: WIDGET_GLOBE
+        addSettingCard(
+            parent,
+            if (selected == WIDGET_GLOBE) "✓   Rotating Earth — ACTIVE" else "🌐   Rotating Earth Globe",
+            "A glowing 3D-style globe with orbit, latitude and longitude animation"
+        ) {
+            prefs.edit().putString(KEY_FUTURE_WIDGET, WIDGET_GLOBE).apply()
+            renderPage(PAGE_WIDGETS)
+        }
+        addSettingCard(
+            parent,
+            if (selected == WIDGET_REACTOR) "✓   Orbital Reactor — ACTIVE" else "✧   Orbital Reactor",
+            "A futuristic rotating energy core with animated rings and orbiting lights"
+        ) {
+            prefs.edit().putString(KEY_FUTURE_WIDGET, WIDGET_REACTOR).apply()
+            renderPage(PAGE_WIDGETS)
+        }
+        addSettingCard(
+            parent,
+            if (selected == WIDGET_OFF) "✓   Animation: OFF" else "○   Turn animation off",
+            "Keep the Home screen minimal and save a little processing power"
+        ) {
+            prefs.edit().putString(KEY_FUTURE_WIDGET, WIDGET_OFF).apply()
+            renderPage(PAGE_WIDGETS)
+        }
+        val placement = prefs.getString(KEY_FUTURISTIC_POSITION, "side") ?: "side"
+        addSettingCard(
+            parent,
+            "↔   Widget placement: ${if (placement == "center") "Center" else "Side"}",
+            "Switch the animated widget between the center and right side of Home"
+        ) {
+            prefs.edit().putString(KEY_FUTURISTIC_POSITION, if (placement == "center") "side" else "center").apply()
+            renderPage(PAGE_WIDGETS)
+        }
+        addSettingCard(parent, "⌚   Reset clock widget position", "Place the live clock back at the left side; drag it on Home to reposition") {
+            prefs.edit().remove(KEY_CLOCK_POSITION_DP).apply()
+            renderPage(PAGE_WIDGETS)
+        }
+        addSettingCard(parent, "←   Back to Home", "Preview your selected widgets") { renderPage(PAGE_HOME) }
+    }
+
+        private fun buildSettings(parent: LinearLayout) {
         parent.addView(sectionTitle("Launcher settings"))
         parent.addView(infoCard("NEXA is an independent launcher. Your factory launcher and system apps are not modified."))
         addSettingCard(parent, "▦   Refresh app library", "Scan apps available to this launcher") {
@@ -338,7 +597,8 @@ class MainActivity : Activity() {
                 toast("Open Android Settings and choose Default Apps → Home app")
             }
         }
-        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.1.0 · Created by Mirza Qasim") {
+        addSettingCard(parent, "◉   Futuristic Widgets", "Configure the animated globe or orbital reactor") { renderPage(PAGE_WIDGETS) }
+        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.2.0 · Created by Mirza Qasim") {
             renderAbout(parent)
         }
         addSettingCard(parent, "↻   Restart launcher screen", "Reload NEXA without rebooting the TV") {
@@ -346,7 +606,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun buildAi(parent: LinearLayout) {
+        private fun buildAi(parent: LinearLayout) {
         val logo = glassCard(true).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
