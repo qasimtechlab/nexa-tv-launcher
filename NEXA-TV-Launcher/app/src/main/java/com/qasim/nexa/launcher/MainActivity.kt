@@ -86,6 +86,15 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = getSharedPreferences("nexa_preferences", MODE_PRIVATE)
+        val savedYoutubeTopics = prefs.getString(KEY_YOUTUBE_INTERESTS, null)
+        val supportedYoutubeTopics = YoutubeChannelCatalog.categoryNames
+        if (savedYoutubeTopics.isNullOrBlank() ||
+            savedYoutubeTopics.split("|").none { it.trim() in supportedYoutubeTopics }
+        ) {
+            prefs.edit().putString(KEY_YOUTUBE_INTERESTS, DEFAULT_YOUTUBE_INTERESTS).apply()
+        }
+        // Remove the legacy YouTube Data API key from earlier versions; the new feed needs no key.
+        prefs.edit().remove("youtube_data_api_key").apply()
         keyVault = GeminiKeyVault(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         applyImmersiveMode()
@@ -639,6 +648,15 @@ class MainActivity : Activity() {
         private fun buildSettings(parent: LinearLayout) {
         parent.addView(sectionTitle("Launcher settings"))
         parent.addView(infoCard("NEXA is an independent launcher. Your factory launcher and system apps are not modified."))
+        val recommendationsEnabled = prefs.getBoolean(KEY_YOUTUBE_RECOMMENDATIONS_ENABLED, true)
+        addSettingCard(
+            parent,
+            if (recommendationsEnabled) "✓   YouTube Recommendations: ON" else "○   YouTube Recommendations: OFF",
+            "Show or hide the YouTube video section on Home. Favorites and the rest of Home stay unchanged."
+        ) { showYouTubeRecommendationsDialog() }
+        addSettingCard(parent, "☷   Manage YouTube categories", "Choose Pakistani/Indian drama, movie, tech, gaming and vlog feeds") {
+            showYouTubeInterestsDialog()
+        }
         addSettingCard(parent, "▦   Refresh app library", "Scan apps available to this launcher") {
             renderPage(PAGE_APPS)
             toast("Application list refreshed")
@@ -651,12 +669,31 @@ class MainActivity : Activity() {
             }
         }
         addSettingCard(parent, "◉   Futuristic Widgets", "Configure the animated globe or orbital reactor") { renderPage(PAGE_WIDGETS) }
-        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.2.0 · Created by Mirza Qasim") {
+        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.2.1 · Created by Mirza Qasim") {
             renderAbout(parent)
         }
         addSettingCard(parent, "↻   Restart launcher screen", "Reload NEXA without rebooting the TV") {
             renderPage(PAGE_HOME)
         }
+    }
+
+    private fun showYouTubeRecommendationsDialog() {
+        val enabled = prefs.getBoolean(KEY_YOUTUBE_RECOMMENDATIONS_ENABLED, true)
+        val options = arrayOf(
+            "ON — Show curated Hindi/Urdu video cards on Home",
+            "OFF — Hide recommendations from Home"
+        )
+        AlertDialog.Builder(this)
+            .setTitle("Home YouTube recommendations")
+            .setSingleChoiceItems(options, if (enabled) 0 else 1) { dialog, which ->
+                val turnOn = which == 0
+                prefs.edit().putBoolean(KEY_YOUTUBE_RECOMMENDATIONS_ENABLED, turnOn).apply()
+                dialog.dismiss()
+                renderPage(PAGE_SETTINGS)
+                toast(if (turnOn) "YouTube recommendations enabled on Home" else "YouTube recommendations hidden from Home")
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
         private fun buildAi(parent: LinearLayout) {
@@ -938,36 +975,32 @@ class MainActivity : Activity() {
     }
 
     private fun buildHomeYoutubeRail(parent: LinearLayout) {
+        if (!prefs.getBoolean(KEY_YOUTUBE_RECOMMENDATIONS_ENABLED, true)) return
+
         parent.addView(sectionTitle("Videos picked for you"))
-        parent.addView(textView("Choose categories you enjoy. NEXA learns from the topics whose videos you open.", 13, textMuted).apply {
-            setPadding(0, 0, 0, dp(10))
-        })
+        parent.addView(textView(
+            "Fresh uploads from curated Pakistani and Indian Hindi/Urdu channels. Choose a category to browse.",
+            13,
+            textMuted
+        ).apply { setPadding(0, 0, 0, dp(10)) })
         addYoutubeCategoryRail(parent, PAGE_HOME)
         val active = prefs.getString(KEY_YOUTUBE_ACTIVE_TOPIC, null) ?: youtubeInterests().first()
         buildYoutubeVideoRail(parent, active, PAGE_HOME, 6)
-        addSettingCard(parent, "▶   My YouTube Home", "Open YouTube's own signed-in recommendations") { openYouTubeHome() }
+        addSettingCard(parent, "▶   Open official YouTube Home", "Use your signed-in YouTube recommendations") {
+            openYouTubeHome()
+        }
     }
 
     private fun buildYoutube(parent: LinearLayout) {
-        parent.addView(sectionTitle("YouTube for you"))
-        parent.addView(infoCard("NEXA shows public YouTube videos with real thumbnails and titles. Your selected topics and the videos you open adjust the local interest ranking. For your private YouTube account Home feed, use the official YouTube app."))
-        addSettingCard(parent, "▶   Open my YouTube Home", "See recommendations from your signed-in YouTube account") {
+        parent.addView(sectionTitle("YouTube channel library"))
+        parent.addView(infoCard(
+            "No YouTube API key is needed. NEXA reads public uploads from ${YoutubeChannelCatalog.uniqueChannelCount} curated Pakistani and Indian channels across Hindi/Urdu dramas, movies, technology, gaming and vlogs. Your private YouTube Home remains available in the official app."
+        ))
+        addSettingCard(parent, "▶   Open my official YouTube Home", "See your account-based recommendations and subscriptions") {
             openYouTubeHome()
         }
-        addSettingCard(parent, "✎   Choose my interests", "Edit up to six categories or topics for your video feed") {
+        addSettingCard(parent, "☷   Choose video categories", "Turn the built-in Hindi/Urdu channel categories on or off") {
             showYouTubeInterestsDialog()
-        }
-        addSettingCard(
-            parent,
-            if (youtubeApiKey().isNullOrBlank()) "＋   Connect YouTube video feed" else "✓   Change YouTube Data API key",
-            "A separate Google YouTube Data API v3 key loads video cards and thumbnails"
-        ) { showYouTubeApiKeyDialog() }
-        addSettingCard(parent, "↗   Get a YouTube API key", "Open Google Cloud Console to create a restricted key") {
-            try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://console.cloud.google.com/apis/credentials")))
-            } catch (_: Exception) {
-                toast("Open console.cloud.google.com/apis/credentials in a browser")
-            }
         }
 
         parent.addView(sectionTitle("Browse categories"))
@@ -980,7 +1013,11 @@ class MainActivity : Activity() {
     private fun youtubeInterests(): List<String> {
         val stored = prefs.getString(KEY_YOUTUBE_INTERESTS, DEFAULT_YOUTUBE_INTERESTS)
             ?: DEFAULT_YOUTUBE_INTERESTS
-        val topics = stored.split("|").map { it.trim() }.filter { it.isNotBlank() }.distinct().take(6)
+        val topics = stored.split("|")
+            .map { it.trim() }
+            .filter { it in YoutubeChannelCatalog.categoryNames }
+            .distinct()
+            .take(8)
             .ifEmpty { DEFAULT_YOUTUBE_INTERESTS.split("|") }
         val scores = try {
             JSONObject(prefs.getString(KEY_YOUTUBE_SCORES, "{}") ?: "{}")
@@ -994,40 +1031,25 @@ class MainActivity : Activity() {
     }
 
     private fun showYouTubeInterestsDialog() {
-        val input = EditText(this).apply {
-            hint = "Gaming | AI & Technology | Learning"
-            setText(youtubeInterests().joinToString(" | "))
-            minLines = 2
-            maxLines = 4
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            setPadding(dp(14), dp(12), dp(14), dp(12))
-            setTextColor(textLight)
-            setHintTextColor(textMuted)
-        }
-        val holder = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(8), dp(22), 0)
-            addView(input, LinearLayout.LayoutParams(-1, dp(92)))
-            addView(textView("Add up to six topics, separated by | or commas. Videos you open give that topic a higher local priority.", 12, textMuted))
-        }
+        val categories = YoutubeChannelCatalog.categoryNames
+        val checked = BooleanArray(categories.size) { index -> categories[index] in youtubeInterests() }
         AlertDialog.Builder(this)
-            .setTitle("Your YouTube interests")
-            .setView(holder)
+            .setTitle("Choose YouTube categories")
+            .setMultiChoiceItems(categories.toTypedArray(), checked) { _, which, isChecked ->
+                checked[which] = isChecked
+            }
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Save") { _, _ ->
-                val topics = input.text.toString()
-                    .split("|", ",", "\n")
-                    .map { it.trim() }
-                    .filter { it.isNotBlank() }
-                    .distinct()
-                    .take(6)
-                if (topics.isEmpty()) {
-                    toast("Add at least one interest")
+                val selected = categories.filterIndexed { index, _ -> checked[index] }
+                if (selected.isEmpty()) {
+                    toast("Keep at least one video category selected")
                 } else {
                     prefs.edit()
-                        .putString(KEY_YOUTUBE_INTERESTS, topics.joinToString("|"))
-                        .putString(KEY_YOUTUBE_ACTIVE_TOPIC, topics.first())
+                        .putString(KEY_YOUTUBE_INTERESTS, selected.joinToString("|"))
+                        .putString(KEY_YOUTUBE_ACTIVE_TOPIC, selected.first())
                         .apply()
+                    youtubeVideoCache.clear()
+                    youtubeErrors.clear()
                     renderPage(if (currentPage == PAGE_YOUTUBE) PAGE_YOUTUBE else PAGE_HOME)
                 }
             }
@@ -1055,23 +1077,20 @@ class MainActivity : Activity() {
     }
 
     private fun buildYoutubeVideoRail(parent: LinearLayout, topic: String, targetPage: String, maxResults: Int) {
-        val apiKey = youtubeApiKey()
-        if (apiKey.isNullOrBlank()) {
-            parent.addView(infoCard("Video thumbnails need a free YouTube Data API v3 key. This is separate from your Gemini key. Add it once in NEXA to activate video cards."))
-            addSettingCard(parent, "＋   Add YouTube Data API key", "Connect public video search and thumbnail previews") {
-                showYouTubeApiKeyDialog()
-            }
+        val channels = YoutubeChannelCatalog.channelsFor(topic)
+        if (channels.isEmpty()) {
+            parent.addView(infoCard("No built-in channel sources are configured for this category yet."))
             return
         }
 
         val cached = youtubeVideoCache[topic]
         if (cached != null) {
             if (cached.isEmpty()) {
-                parent.addView(infoCard("No videos were returned for this category. Try another topic or refresh the feed."))
+                parent.addView(infoCard("No recent uploads were returned by these channels. Check the internet connection or refresh."))
             } else {
                 addYoutubeVideoCards(parent, cached, topic)
             }
-            addSettingCard(parent, "↻   Refresh videos", "Request an updated list for this category") {
+            addSettingCard(parent, "↻   Refresh videos", "Fetch the latest public uploads from ${channels.size} channels") {
                 youtubeVideoCache.remove(topic)
                 youtubeErrors.remove(topic)
                 renderPage(targetPage)
@@ -1082,20 +1101,20 @@ class MainActivity : Activity() {
         val error = youtubeErrors[topic]
         if (!error.isNullOrBlank()) {
             parent.addView(infoCard(error))
-            addSettingCard(parent, "↻   Try this category again", "Retry the YouTube video request") {
+            addSettingCard(parent, "↻   Try this category again", "Refresh public channel feeds") {
                 youtubeErrors.remove(topic)
                 renderPage(targetPage)
             }
             return
         }
 
-        parent.addView(textView("Loading video thumbnails for $topic…", 14, textMuted).apply {
+        parent.addView(textView("Loading latest uploads from ${channels.size} channels…", 14, textMuted).apply {
             setPadding(0, dp(12), 0, dp(18))
         })
         if (youtubeFetchInProgress.add(topic)) {
             youtubeExecutor.execute {
                 try {
-                    val videos = YoutubeApi.searchVideos(apiKey, topic, maxResults)
+                    val videos = YoutubeFeed.fetchVideos(channels, maxResults)
                     mainHandler.post {
                         youtubeVideoCache[topic] = videos
                         youtubeErrors.remove(topic)
@@ -1104,7 +1123,7 @@ class MainActivity : Activity() {
                     }
                 } catch (error: Exception) {
                     val message = error.message?.takeIf { it.isNotBlank() }
-                        ?: "Could not load YouTube videos. Check the internet connection and API key."
+                        ?: "Could not load YouTube uploads. Check the internet connection and try again."
                     mainHandler.post {
                         youtubeErrors[topic] = message
                         youtubeFetchInProgress.remove(topic)
@@ -1174,7 +1193,7 @@ class MainActivity : Activity() {
         }
         youtubeExecutor.execute {
             val bitmap = try {
-                YoutubeApi.downloadThumbnail(imageUrl)
+                YoutubeFeed.downloadThumbnail(imageUrl)
             } catch (_: Exception) {
                 null
             }
@@ -1187,69 +1206,6 @@ class MainActivity : Activity() {
                 }
             }
         }
-    }
-
-    private fun youtubeApiKey(): String? = prefs.getString(KEY_YOUTUBE_API_KEY, null)
-        ?.trim()
-        ?.takeIf { it.isNotBlank() }
-
-    private fun showYouTubeApiKeyDialog() {
-        val existing = youtubeApiKey().orEmpty()
-        val input = EditText(this).apply {
-            hint = "Paste YouTube Data API key"
-            setSingleLine(true)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setText(existing)
-            setSelection(text.length)
-            setTextColor(textLight)
-            setHintTextColor(textMuted)
-            setPadding(dp(14), dp(12), dp(14), dp(12))
-        }
-        val holder = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(8), dp(22), 0)
-            addView(textView("Create a Google Cloud project, enable YouTube Data API v3, then create an API key. Restrict that key to YouTube Data API v3 in Google Cloud. The key stays in this app's private settings and is never added to the source code.", 13, textMuted))
-            addView(input, LinearLayout.LayoutParams(-1, dp(58)).apply { topMargin = dp(12) })
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Connect YouTube videos")
-            .setView(holder)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Save key", null)
-            .setNeutralButton(if (existing.isBlank()) "Help" else "Remove key", null)
-            .create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val key = input.text.toString().trim()
-                if (key.isBlank()) {
-                    input.error = "Enter your YouTube API key"
-                } else {
-                    prefs.edit().putString(KEY_YOUTUBE_API_KEY, key).apply()
-                    youtubeVideoCache.clear()
-                    youtubeErrors.clear()
-                    dialog.dismiss()
-                    renderPage(currentPage)
-                    toast("YouTube video feed connected")
-                }
-            }
-            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
-                if (existing.isBlank()) {
-                    try {
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://console.cloud.google.com/apis/credentials")))
-                    } catch (_: Exception) {
-                        toast("Open Google Cloud Console in your browser")
-                    }
-                } else {
-                    prefs.edit().remove(KEY_YOUTUBE_API_KEY).apply()
-                    youtubeVideoCache.clear()
-                    youtubeErrors.clear()
-                    dialog.dismiss()
-                    renderPage(currentPage)
-                    toast("YouTube API key removed")
-                }
-            }
-        }
-        dialog.show()
     }
 
     private fun recordYoutubePreference(topic: String) {
@@ -1874,9 +1830,9 @@ String): TextView = textView(title, 21, textLight, true).apply {
         private const val KEY_GEMINI_INTERACTION_ID = "gemini_interaction_id"
         private const val KEY_GEMINI_MODEL = "gemini_model"
         private const val KEY_YOUTUBE_INTERESTS = "youtube_interests"
-        private const val KEY_YOUTUBE_API_KEY = "youtube_data_api_key"
         private const val KEY_YOUTUBE_ACTIVE_TOPIC = "youtube_active_topic"
         private const val KEY_YOUTUBE_SCORES = "youtube_interest_scores"
+        private const val KEY_YOUTUBE_RECOMMENDATIONS_ENABLED = "youtube_recommendations_enabled"
         private const val KEY_FAVORITE_APPS = "favorite_apps"
         private const val KEY_APP_ORDER = "app_manual_order"
         private const val KEY_APPS_ROWS = "apps_rows_layout"
@@ -1890,7 +1846,7 @@ String): TextView = textView(title, 21, textLight, true).apply {
         private const val WIDGET_OFF = "off"
         private const val WIDGET_GLOBE = "globe"
         private const val WIDGET_REACTOR = "reactor"
-        private const val DEFAULT_YOUTUBE_INTERESTS = "AI & Technology|Android Tips|Gaming|Science & Learning|Islamic Content|Entertainment"
+        private const val DEFAULT_YOUTUBE_INTERESTS = "Pakistani Dramas|Indian Movies|Indian TV & Dramas|Hindi/Urdu Technology|Hindi/Urdu Gaming|Pakistani Vlogs|Indian Vlogs"
         private const val KEY_THEME = "theme"
         private const val KEY_ACCENT = "accent"
         private const val THEME_GLASS = "glass"
