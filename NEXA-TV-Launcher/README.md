@@ -19,8 +19,8 @@ Native Android TV launcher built with Kotlin and classic Android Views. Designed
 ## YouTube video cards — API-free Hindi/Urdu channel feeds
 
 - No YouTube Data API key, Gemini key reuse, Google Cloud project or OAuth setup is required for the curated public video feed.
-- NEXA includes **27 curated Pakistani and Indian channels across seven categories**: Pakistani Dramas, Indian Movies, Indian TV & Dramas, Hindi/Urdu Technology, Hindi/Urdu Gaming, Pakistani Vlogs and Indian Vlogs.
-- The initial list includes official broadcaster/movie-library channels such as HUM TV, ARY Digital, Har Pal Geo, Green TV, SET India, Colors TV, Goldmines, Shemaroo Movies, Ultra Movie Parlour and Rajshri, plus Hindi/Urdu tech, gaming and vlog creators.
+- NEXA includes **32 curated Pakistani and Indian channels across seven categories**: Pakistani Dramas, Indian Movies, Indian TV & Dramas, Hindi/Urdu Technology, Hindi/Urdu Gaming, Pakistani Vlogs and Indian Vlogs.
+- The initial list includes official broadcaster/movie-library channels such as HUM TV, ARY Digital, Har Pal Geo, Green TV, SET India, Colors TV, Goldmines, Shemaroo Movies, Ultra Movie Parlour and Rajshri, plus Hindi/Urdu tech, gaming and vlog creators including Tech Burner, AS Gaming, Gyan Gaming, Lokesh Gamer and Rabeeca Khan.
 - NEXA reads each configured channel's public YouTube Atom uploads feed, merges recent uploads, removes duplicate videos and sorts by publish date.
 - Cards show video title, channel name and a thumbnail derived from the YouTube video ID. Selecting a card opens that exact video in the installed YouTube app when available.
 - Categories can be enabled or disabled from **YouTube → Choose video categories**. Topic opens adjust only NEXA's local category order; this is not YouTube's private recommendation algorithm.
