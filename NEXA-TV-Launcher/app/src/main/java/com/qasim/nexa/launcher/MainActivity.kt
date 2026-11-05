@@ -1321,31 +1321,148 @@ class MainActivity : Activity() {
         return card
     }
 
-    private fun appTile(app: LaunchableApp): View {
+    private fun appTile(app: LaunchableApp, rowMode: Boolean = false): View {
         val tile = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(10), dp(12), dp(10), dp(10))
+            orientation = if (rowMode) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(10), dp(12), dp(10))
             background = cardDrawable(false)
             isFocusable = true
             isClickable = true
-            contentDescription = app.label
-            setOnFocusChangeListener { v, hasFocus -> v.background = cardDrawable(hasFocus) }
+            isLongClickable = true
+            contentDescription = "${app.label}. Hold OK for app options."
+            setOnFocusChangeListener { view, focused -> view.background = cardDrawable(focused) }
             setOnClickListener { launchApp(app.packageName) }
+            setOnLongClickListener {
+                showAppOptions(app)
+                true
+            }
         }
         val icon = ImageView(this).apply {
             setImageDrawable(app.icon)
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
-        tile.addView(icon, LinearLayout.LayoutParams(dp(58), dp(58)).apply { bottomMargin = dp(9) })
-        tile.addView(textView(app.label, 13, textLight, true).apply {
-            gravity = Gravity.CENTER
+        val iconSize = if (rowMode) 54 else 58
+        tile.addView(icon, LinearLayout.LayoutParams(dp(iconSize), dp(iconSize)).apply {
+            if (rowMode) rightMargin = dp(16) else bottomMargin = dp(9)
+        })
+        val label = textView(app.label, 14, textLight, true).apply {
+            gravity = if (rowMode) Gravity.CENTER_VERTICAL or Gravity.START else Gravity.CENTER
             maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
-        })
+        }
+        if (rowMode) {
+            tile.addView(label, LinearLayout.LayoutParams(0, -2, 1f))
+            tile.addView(textView("HOLD OK  ·  OPTIONS", 10, textMuted, true).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            })
+        } else {
+            tile.addView(label, LinearLayout.LayoutParams(-1, -2))
+        }
         return tile
     }
-    private fun getLaunchableApps(): List<LaunchableApp> {
+
+    private fun showAppOptions(app: LaunchableApp) {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(18), dp(20), dp(18))
+            background = cardDrawable(false, true)
+        }
+        panel.addView(textView(app.label, 22, textLight, true))
+        panel.addView(textView("Application options", 12, textMuted).apply {
+            setPadding(0, dp(3), 0, dp(14))
+        })
+        val dialog = AlertDialog.Builder(this).create()
+
+        fun addOption(title: String, subtitle: String, action: () -> Unit) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(15), dp(10), dp(15), dp(10))
+                background = cardDrawable(false)
+                isFocusable = true
+                isClickable = true
+                setOnFocusChangeListener { view, focused -> view.background = cardDrawable(focused) }
+                setOnClickListener {
+                    dialog.dismiss()
+                    action()
+                }
+            }
+            row.addView(textView(title, 16, textLight, true))
+            row.addView(textView(subtitle, 11, textMuted).apply { setPadding(0, dp(2), 0, 0) })
+            panel.addView(row, LinearLayout.LayoutParams(-1, dp(62)).apply { bottomMargin = dp(7) })
+        }
+
+        addOption("▶   Open app", "Launch this application") { launchApp(app.packageName) }
+        addOption(
+            if (isFavoritePackage(app.packageName)) "★   Remove from Favorites" else "☆   Add to Favorites",
+            if (isFavoritePackage(app.packageName)) "Remove this app from the NEXA Home screen" else "Show this app in the Home Favorites row"
+        ) { toggleFavorite(app) }
+        addOption("↑   Move app up", "Move it earlier in the Apps library and Favorites row") {
+            moveAppInLibrary(app, -1)
+        }
+        addOption("↓   Move app down", "Move it later in the Apps library and Favorites row") {
+            moveAppInLibrary(app, 1)
+        }
+        addOption("▣   Uninstall app", "Open Android's system uninstall confirmation") {
+            requestAppUninstall(app)
+        }
+        addOption("Close", "Return to the application library") { }
+        dialog.setView(panel)
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.show()
+        dialog.window?.setLayout(dp(500), -2)
+    }
+
+    private fun favoritePackages(): MutableList<String> {
+        return prefs.getString(KEY_FAVORITE_APPS, "")
+            .orEmpty()
+            .split("|")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .toMutableList()
+    }
+
+    private fun isFavoritePackage(packageName: String): Boolean = favoritePackages().contains(packageName)
+
+    private fun toggleFavorite(app: LaunchableApp) {
+        val favorites = favoritePackages()
+        if (favorites.contains(app.packageName)) {
+            favorites.remove(app.packageName)
+            toast("${app.label} removed from Favorites")
+        } else {
+            favorites.add(app.packageName)
+            toast("${app.label} added to Favorites")
+        }
+        prefs.edit().putString(KEY_FAVORITE_APPS, favorites.joinToString("|")).apply()
+        renderPage(if (currentPage == PAGE_HOME) PAGE_HOME else PAGE_APPS)
+    }
+
+    private fun moveAppInLibrary(app: LaunchableApp, direction: Int) {
+        val apps = getLaunchableApps().toMutableList()
+        val from = apps.indexOfFirst { it.packageName == app.packageName }
+        val to = from + direction
+        if (from < 0 || to !in apps.indices) {
+            toast("This app is already at that end of the list")
+            return
+        }
+        val moved = apps.removeAt(from)
+        apps.add(to, moved)
+        prefs.edit().putString(KEY_APP_ORDER, apps.joinToString("|") { it.packageName }).apply()
+        renderPage(if (currentPage == PAGE_HOME) PAGE_HOME else PAGE_APPS)
+        toast("${app.label} moved")
+    }
+
+    private fun requestAppUninstall(app: LaunchableApp) {
+        try {
+            startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.packageName}")))
+        } catch (_: Exception) {
+            toast("Android did not allow this app to be uninstalled. System apps may be protected.")
+        }
+    }
+
+        private fun getLaunchableApps(): List<LaunchableApp> {
         val found = LinkedHashMap<String, LaunchableApp>()
         val categories = listOf(Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER)
         categories.forEach { category ->
@@ -1370,7 +1487,12 @@ class MainActivity : Activity() {
                 }
             }
         }
-        return found.values.sortedBy { it.label.lowercase(Locale.getDefault()) }
+        val savedOrder = prefs.getString(KEY_APP_ORDER, "").orEmpty().split("|")
+        val orderIndex = savedOrder.withIndex().associate { it.value to it.index }
+        return found.values.sortedWith(
+            compareBy<LaunchableApp> { orderIndex[it.packageName] ?: Int.MAX_VALUE }
+                .thenBy { it.label.lowercase(Locale.getDefault()) }
+        )
     }
 
     private fun packageNameForSelf(): String = applicationContext.packageName
