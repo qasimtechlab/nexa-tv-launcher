@@ -366,7 +366,12 @@ class MainActivity : Activity() {
                 val reserved = if (widgetStyle != WIDGET_OFF && placement == "side") dp(142) else dp(12)
                 val maxLeft = (strip.width - clock.width - reserved).coerceAtLeast(0)
                 val saved = prefs.getInt(KEY_CLOCK_POSITION_DP, -1)
-                clockParams.leftMargin = (if (saved < 0) 0 else dp(saved)).coerceIn(0, maxLeft)
+                val desired = when {
+                    saved == -2 -> maxLeft / 2
+                    saved < 0 -> 0
+                    else -> dp(saved)
+                }
+                clockParams.leftMargin = desired.coerceIn(0, maxLeft)
                 clock.layoutParams = clockParams
             }
         }
@@ -531,7 +536,7 @@ class MainActivity : Activity() {
             renderPage(PAGE_WIDGETS)
         }
         addSettingCard(parent, "⌚   Center the clock widget", "Reset its Home position; you can drag it to any other position") {
-            prefs.edit().remove(KEY_CLOCK_POSITION_DP).apply()
+            prefs.edit().putInt(KEY_CLOCK_POSITION_DP, -2).apply()
             renderPage(PAGE_HOME)
         }
 
@@ -588,8 +593,8 @@ class MainActivity : Activity() {
             prefs.edit().putString(KEY_FUTURISTIC_POSITION, if (placement == "center") "side" else "center").apply()
             renderPage(PAGE_WIDGETS)
         }
-        addSettingCard(parent, "⌚   Reset clock widget position", "Place the live clock back at the left side; drag it on Home to reposition") {
-            prefs.edit().remove(KEY_CLOCK_POSITION_DP).apply()
+        addSettingCard(parent, "⌚   Center clock widget", "Place the live clock in the middle; drag it on Home to reposition") {
+            prefs.edit().putInt(KEY_CLOCK_POSITION_DP, -2).apply()
             renderPage(PAGE_WIDGETS)
         }
         addSettingCard(parent, "←   Back to Home", "Preview your selected widgets") { renderPage(PAGE_HOME) }
