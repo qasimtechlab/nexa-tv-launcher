@@ -42,17 +42,13 @@ private class GeminiHttpException(
  * and stable Flash model fallback. Calls are made off the UI thread.
  */
 internal object GeminiApi {
-    const val MODEL = "gemini-3.8-flash"
+    const val MODEL = "gemini-3.5-flash-lite"
 
     private const val ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions"
-    private const val MAX_RETRIES_PER_MODEL = 2
+    private const val MAX_RETRIES_PER_MODEL = 0
 
     // Stable Flash model endpoints. Actual access and quotas are determined by the API project.
-    private val fallbackModels = listOf(
-        "gemini-3.7-flash",
-        "gemini-3.6-flash",
-        "gemini-3.5-flash-lite"
-    )
+    private val fallbackModels = emptyList<String>()
 
     fun modelName(model: String): String = when (model) {
         "gemini-3.8-flash" -> "Gemini 3.8 Flash"
@@ -69,7 +65,7 @@ internal object GeminiApi {
         preferredModel: String = MODEL,
         fallbackPrompt: String? = null
     ): GeminiReply {
-        require(apiKey.isNotBlank()) { "Add your Gemini API key first." }
+        require(apiKey.isNotBlank()) { "Add your API key first." }
         require(prompt.isNotBlank()) { "Write a message first." }
 
         val supportedModels = listOf(MODEL) + fallbackModels
@@ -117,7 +113,7 @@ internal object GeminiApi {
 
         val detail = lastError?.message?.takeIf { it.isNotBlank() }
         throw IllegalStateException(
-            detail ?: "All available Gemini Flash models are temporarily unavailable. Please try again shortly.",
+            detail ?: "The AI service is temporarily unavailable. Please try again shortly.",
             lastError
         )
     }
@@ -141,8 +137,8 @@ internal object GeminiApi {
             .put(
                 "generation_config",
                 JSONObject()
-                    .put("thinking_level", "low")
-                    .put("max_output_tokens", 2400)
+                    .put("thinking_level", "minimal")
+                    .put("max_output_tokens", 1000)
             )
 
         if (!previousInteractionId.isNullOrBlank()) {
@@ -151,8 +147,8 @@ internal object GeminiApi {
 
         val connection = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
-            connectTimeout = 20_000
-            readTimeout = 90_000
+            connectTimeout = 7_000
+            readTimeout = 25_000
             doOutput = true
             setRequestProperty("x-goog-api-key", apiKey.trim())
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -181,11 +177,11 @@ internal object GeminiApi {
                 val message = errorObject?.optString("message")
                     ?.takeIf { it.isNotBlank() }
                     ?: when (status) {
-                        400 -> "Gemini rejected the request. Check the request and model access."
-                        401, 403 -> "API key is invalid or does not have Gemini API access."
-                        429 -> "Gemini quota or rate limit reached. Check your AI Studio Usage and Rate Limits."
-                        503 -> "${modelName(model)} is temporarily overloaded. Trying another Gemini Flash model."
-                        else -> "Gemini request failed (HTTP $status)."
+                        400 -> "The AI service could not process this request."
+                        401, 403 -> "This API key is invalid or does not have AI access."
+                        429 -> "The AI request limit has been reached. Check your key's usage limits."
+                        503 -> "The AI service is busy. Please try again in a moment."
+                        else -> "AI request failed (HTTP $status)."
                     }
                 val apiStatus = errorObject?.optString("status").orEmpty()
                 throw GeminiHttpException(status, apiStatus, message)
@@ -193,10 +189,10 @@ internal object GeminiApi {
 
             val replyText = extractText(response)
             val interactionId = response.optString("id").takeIf { it.isNotBlank() }
-                ?: throw IllegalStateException("Gemini returned no conversation ID. Please try again.")
+                ?: throw IllegalStateException("The AI service returned an incomplete reply. Please try again.")
 
             if (replyText.isBlank()) {
-                throw IllegalStateException("Gemini returned an empty response. Please try again.")
+                throw IllegalStateException("BixSigma AI received an empty response. Please try again.")
             }
 
             return GeminiReply(replyText.trim(), interactionId, model)

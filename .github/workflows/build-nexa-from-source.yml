@@ -42,18 +42,19 @@ jobs:
       - name: Commit APK into repository
         run: |
           mkdir -p releases
-          cp NEXA-TV-Launcher/app/build/outputs/apk/debug/app-debug.apk releases/NEXA-TV-Launcher-v1.2.1-debug.apk
-          cp NEXA-TV-Launcher/app/build/outputs/apk/debug/app-debug.apk releases/NEXA-TV-Launcher-latest.apk
           VERSION="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' NEXA-TV-Launcher/app/build.gradle.kts | head -n 1)"
+          APK_NAME="NEXA-TV-Launcher-v${VERSION}-debug.apk"
+          cp NEXA-TV-Launcher/app/build/outputs/apk/debug/app-debug.apk "releases/${APK_NAME}"
+          cp NEXA-TV-Launcher/app/build/outputs/apk/debug/app-debug.apk releases/NEXA-TV-Launcher-latest.apk
           RELEASE_DATE="$(date -u +%Y-%m-%d)"
           printf '{"version":"%s","releaseDate":"%s","file":"NEXA-TV-Launcher-latest.apk"}\n' "$VERSION" "$RELEASE_DATE" > releases/latest.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add releases/NEXA-TV-Launcher-v1.2.1-debug.apk releases/NEXA-TV-Launcher-latest.apk releases/latest.json
+          git add "releases/${APK_NAME}" releases/NEXA-TV-Launcher-latest.apk releases/latest.json
           if git diff --cached --quiet; then
             echo "APK is unchanged; no repository commit needed."
           else
-            git commit -m "build: publish NEXA TV Launcher v1.2.1 debug APK"
+            git commit -m "build: publish NEXA TV Launcher v${VERSION} debug APK"
             git push origin HEAD:${GITHUB_REF_NAME}
           fi
       - name: Upload debug APK

@@ -2,9 +2,12 @@ package com.qasim.nexa.launcher
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.role.RoleManager
+import android.Manifest
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ResolveInfo
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
@@ -13,12 +16,19 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.Build
+import android.provider.Settings
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import android.text.InputType
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -82,6 +92,16 @@ class MainActivity : Activity() {
     private val aiMessages = mutableListOf<Pair<String, String>>()
     private var aiBusy = false
     private var aiStatusMessage: String? = null
+    private var activeAiInput: EditText? = null
+    private var pendingSpeechInput: EditText? = null
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var speechListening = false
+    private var aiMicButton: Button? = null
+    private var textToSpeech: TextToSpeech? = null
+    private var textToSpeechReady = false
+    private var movingAppPackage: String? = null
+    private var focusAppAfterRender: String? = null
+    private var appGridColumns = 4
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,6 +132,25 @@ class MainActivity : Activity() {
         setContentView(root)
         applyWallpaper()
         renderPage(PAGE_HOME)
+        initializeTextToSpeech()
+        if (intent.getBooleanExtra(EXTRA_START_AI_VOICE, false)) mainHandler.postDelayed({ openAiAndListen() }, 500L)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_START_AI_VOICE, false)) openAiAndListen()
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN &&
+            (event.keyCode == KeyEvent.KEYCODE_VOICE_ASSIST || event.keyCode == KeyEvent.KEYCODE_ASSIST) &&
+            currentPage == PAGE_AI
+        ) {
+            activeAiInput?.let { startVoiceInput(it) }
+            return true
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onResume() {
@@ -130,9 +169,32 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         mainHandler.removeCallbacks(widgetFrameTicker)
-        aiExecutor.shutdownNow()
-        youtubeExecutor.shutdownNow()
+        try { speechRecognizer?.cancel(); speechRecognizer?.destroy() } catch (_: Exception) { }
+        speechRecognizer = null
+        textToSpeech?.stop(); textToSpeech?.shutdown()
+        aiExecutor.shutdownNow(); youtubeExecutor.shutdownNow()
         super.onDestroy()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_MIC_PERMISSION) {
+            val input = pendingSpeechInput
+            pendingSpeechInput = null
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED && input != null)
+                startSpeechRecognition(input)
+            else toast("Microphone permission is required for voice input.")
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_ASSISTANT_ROLE) {
+            toast(if (resultCode == Activity.RESULT_OK) "BixSigma AI is selected as the assistant where supported."
+                else "Assistant selection was not changed.")
+            if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+        }
     }
 
     private fun applyImmersiveMode() {
@@ -148,6 +210,15 @@ class MainActivity : Activity() {
     }
 
     override fun onBackPressed() {
+        if (movingAppPackage != null) {
+            val selected = movingAppPackage
+            movingAppPackage = null
+            focusAppAfterRender = selected
+            renderPage(PAGE_APPS)
+            toast("App movement cancelled.")
+            return
+        }
+        if (speechListening) { stopVoiceInput(); return }
         if (currentPage != PAGE_HOME) {
             renderPage(PAGE_HOME)
         } else {
@@ -197,6 +268,12 @@ class MainActivity : Activity() {
         }) 
         contentHost.post {
             try {
+                val packageToFocus = if (page == PAGE_APPS) focusAppAfterRender else null
+                if (!packageToFocus.isNullOrBlank()) {
+                    val tile = contentHost.findViewWithTag<View>("nexa_app_tile:$packageToFocus")
+                    focusAppAfterRender = null
+                    if (tile != null && tile.requestFocus()) return@post
+                }
                 val navScroll = column.getChildAt(1) as? HorizontalScrollView
                 val navRow = navScroll?.getChildAt(0) as? LinearLayout
                 navRow?.getChildAt(0)?.requestFocus()
@@ -472,53 +549,40 @@ class MainActivity : Activity() {
         }
     }
 
-        private fun buildApps(parent: LinearLayout) {
+            private fun buildApps(parent: LinearLayout) {
         parent.addView(sectionTitle("Application library"))
-        parent.addView(textView("Select an app to open it. Hold the remote's OK button for its options menu.", 14, textMuted).apply {
-            setPadding(0, 0, 0, dp(12))
-        })
-        val rowsMode = prefs.getBoolean(KEY_APPS_ROWS, false)
-        addSettingCard(
-            parent,
-            if (rowsMode) "▤   Layout: Rows" else "▦   Layout: Grid",
-            "Change how installed applications are arranged"
-        ) {
-            prefs.edit().putBoolean(KEY_APPS_ROWS, !rowsMode).apply()
+        val rows = prefs.getBoolean(KEY_APPS_ROWS, false)
+        val moving = movingAppPackage
+        parent.addView(textView(
+            if (moving == null) "Select an app to open it. Hold OK for options, then choose Move app to arrange it with the remote."
+            else "MOVE MODE  •  Use LEFT / RIGHT / UP / DOWN. Press OK to finish or BACK to cancel.",
+            14, if (moving == null) textMuted else accent, moving != null
+        ).apply { setPadding(0, 0, 0, dp(12)) })
+        addSettingCard(parent, if (rows) "▤   Layout: Rows" else "▦   Layout: Grid",
+            "Change how installed applications are arranged") {
+            movingAppPackage = null
+            prefs.edit().putBoolean(KEY_APPS_ROWS, !rows).apply()
             renderPage(PAGE_APPS)
         }
-
-        val apps = getLaunchableApps()
-        if (apps.isEmpty()) {
-            parent.addView(infoCard("No compatible launchable applications were found on this device."))
-            return
-        }
-
-        if (rowsMode) {
+        val installed = getLaunchableApps()
+        if (installed.isEmpty()) { parent.addView(infoCard("No compatible launchable applications were found on this device.")); return }
+        if (rows) {
+            appGridColumns = 1
             val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-            apps.forEach { app ->
-                list.addView(appTile(app, true), LinearLayout.LayoutParams(-1, dp(82)).apply {
-                    bottomMargin = dp(9)
-                })
+            installed.forEach { app ->
+                list.addView(appTile(app, true), LinearLayout.LayoutParams(-1, dp(82)).apply { bottomMargin = dp(9) })
             }
             parent.addView(list, LinearLayout.LayoutParams(-1, -2))
         } else {
-            val screenWidthDp = resources.configuration.screenWidthDp
-            val columns = when {
-                screenWidthDp < 780 -> 2
-                screenWidthDp < 1150 -> 3
-                else -> 4
-            }
-            val tileWidth = (screenWidthDp / columns - 24).coerceIn(150, 220)
-            val grid = GridLayout(this).apply {
-                columnCount = columns
-                alignmentMode = GridLayout.ALIGN_BOUNDS
-                useDefaultMargins = false
-            }
-            apps.forEach { app ->
+            val screenWidth = resources.configuration.screenWidthDp
+            val columns = when { screenWidth < 780 -> 2; screenWidth < 1150 -> 3; else -> 4 }
+            appGridColumns = columns
+            val tileWidth = (screenWidth / columns - 24).coerceIn(150, 220)
+            val grid = GridLayout(this).apply { columnCount = columns; alignmentMode = GridLayout.ALIGN_BOUNDS; useDefaultMargins = false }
+            installed.forEach { app ->
                 val tile = appTile(app)
                 val lp = GridLayout.LayoutParams().apply {
-                    width = dp(tileWidth)
-                    height = dp(142)
+                    width = dp(tileWidth); height = dp(142)
                     setMargins(dp(5), dp(5), dp(12), dp(12))
                 }
                 grid.addView(tile, lp)
@@ -527,7 +591,7 @@ class MainActivity : Activity() {
         }
     }
 
-        private fun buildCustomize(parent: LinearLayout) {
+    private fun buildCustomize(parent: LinearLayout) {
         parent.addView(sectionTitle("Make NEXA yours"))
         parent.addView(textView("Personal settings are saved on this TV. No account is required.", 14, textMuted).apply {
             setPadding(0, 0, 0, dp(16))
@@ -696,278 +760,321 @@ class MainActivity : Activity() {
             .show()
     }
 
-        private fun buildAi(parent: LinearLayout) {
-        val logo = glassCard(true).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(28), dp(22), dp(28), dp(22))
+            private fun buildAi(parent: LinearLayout) {
+        val hero = glassCard(true).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(24), dp(16), dp(24), dp(16))
         }
-        logo.addView(textView("◇", 44, accent, true))
-        logo.addView(textView("BixSigma AI", 29, textLight, true))
-        logo.addView(textView("Gemini 3.8 Flash · Automatic model fallback enabled", 13, textMuted))
-        parent.addView(logo, LinearLayout.LayoutParams(-1, dp(164)).apply { bottomMargin = dp(16) })
+        hero.addView(textView("BIXSIGMA AI", 11, accent, true))
+        hero.addView(textView("Your TV. Your assistant.", 27, textLight, true).apply { setPadding(0, dp(4), 0, dp(3)) })
+        hero.addView(textView("Ask by typing or speak with your remote.", 14, textMuted))
+        parent.addView(hero, LinearLayout.LayoutParams(-1, dp(126)).apply { bottomMargin = dp(12) })
 
-        parent.addView(sectionTitle("Activate your AI assistant"))
         val savedKey = keyVault.read()
-        if (savedKey.isNullOrBlank()) {
-            parent.addView(infoCard("BixSigma AI is ready to connect. Add your own Google Gemini API key to activate real AI replies."))
-        } else {
-            parent.addView(infoCard("Gemini API key saved on this TV. Your key is kept in app-private storage and encrypted with Android Keystore where supported."))
+        addSettingCard(parent, if (savedKey.isNullOrBlank()) "＋   Add API key" else "✓   API key saved  ·  Change key",
+            if (savedKey.isNullOrBlank()) "Connect your private key to activate replies" else "Your key is stored locally on this TV") {
+            showAiKeyDialog()
         }
-        addSettingCard(
-            parent,
-            "↗   Get a free Gemini API key",
-            "Open Google AI Studio to create or copy your key"
-        ) {
-            try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey")))
-            } catch (_: Exception) {
-                toast("Open a browser and visit aistudio.google.com/app/apikey")
-            }
-        }
-        addSettingCard(
-            parent,
-            if (savedKey.isNullOrBlank()) "＋   Add Gemini API key" else "✎   Change Gemini API key",
-            "Paste your personal key from Google AI Studio"
-        ) { showGeminiKeyDialog() }
-        if (!savedKey.isNullOrBlank()) {
-            addSettingCard(parent, "✓   Test Gemini connection", "Check whether your key can reach Gemini") {
-                testGeminiConnection()
-            }
-        }
-        parent.addView(textView("Free-tier availability and request limits are controlled by Google. Avoid sending passwords or sensitive information.", 11, textMuted).apply {
-            setPadding(dp(2), dp(1), dp(2), dp(12))
-        })
+        addSettingCard(parent, "↗   Get API key", "Open the secure key provider dashboard") { openApiKeyPortal() }
+        addSettingCard(parent, "⌁   Set remote voice button",
+            "Choose BixSigma AI as your TV assistant so the remote voice key can open this screen") { requestDefaultAssistant() }
 
-        parent.addView(sectionTitle("Chat with BixSigma"))
-        if (aiMessages.isEmpty()) {
-            parent.addView(infoCard("Start a conversation. BixSigma can answer questions, explain topics and help with everyday tasks."))
-        } else {
-            aiMessages.takeLast(16).forEach { (role, message) ->
-                parent.addView(aiChatBubble(role, message), LinearLayout.LayoutParams(-1, -2).apply {
-                    bottomMargin = dp(10)
-                })
-            }
+        parent.addView(sectionTitle("Quick actions"))
+        val quick = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        listOf("Open Spotify", "Suggest a drama", "Suggest a movie").forEach { prompt ->
+            quick.addView(navButton(prompt, false) {
+                activeAiInput?.let { field -> field.setText(prompt); sendAiMessage(field) }
+            }, LinearLayout.LayoutParams(-2, dp(48)).apply { rightMargin = dp(9) })
+        }
+        val quickScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER }
+        quickScroll.addView(quick)
+        parent.addView(quickScroll, LinearLayout.LayoutParams(-1, dp(56)).apply { bottomMargin = dp(12) })
+
+        parent.addView(sectionTitle("Conversation"))
+        if (aiMessages.isEmpty()) parent.addView(infoCard("Welcome to BixSigma AI. Ask for help, a movie or drama recommendation, or say “Open Spotify”."))
+        else aiMessages.takeLast(12).forEach { (role, message) ->
+            parent.addView(aiChatBubble(role, message), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(9) })
         }
         if (aiBusy) {
-            val loading = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(12), dp(10), dp(12), dp(10))
-                addView(ProgressBar(this@MainActivity), LinearLayout.LayoutParams(dp(26), dp(26)))
-                addView(textView("BixSigma is thinking…", 14, textMuted).apply {
-                    setPadding(dp(12), 0, 0, 0)
-                })
+            val progress = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(10), dp(8), dp(10), dp(8))
+                addView(ProgressBar(this@MainActivity), LinearLayout.LayoutParams(dp(22), dp(22)))
+                addView(textView("BixSigma is replying…", 13, textMuted).apply { setPadding(dp(10), 0, 0, 0) })
             }
-            parent.addView(loading)
+            parent.addView(progress)
         }
-        aiStatusMessage?.takeIf { it.isNotBlank() }?.let { status ->
-            parent.addView(infoCard(status))
-        }
+        aiStatusMessage?.takeIf { it.isNotBlank() }?.let { parent.addView(infoCard(it)) }
 
-        val inputRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val messageInput = EditText(this).apply {
-            tag = "bixsigma_chat_input"
-            hint = "Ask BixSigma anything…"
-            setTextColor(textLight)
-            setHintTextColor(textMuted)
-            textSize = 16f
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val input = EditText(this).apply {
+            tag = "bixsigma_chat_input"; hint = "Type your question…"
+            setTextColor(textLight); setHintTextColor(textMuted); textSize = 16f
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            minLines = 1
-            maxLines = 3
-            setPadding(dp(15), dp(10), dp(15), dp(10))
-            background = cardDrawable(false)
-            isFocusable = true
-            isFocusableInTouchMode = true
-            isEnabled = !aiBusy
+            imeOptions = EditorInfo.IME_ACTION_SEND; minLines = 1; maxLines = 3
+            setPadding(dp(14), dp(10), dp(14), dp(10)); background = cardDrawable(false)
+            isFocusable = true; isFocusableInTouchMode = true; isEnabled = !aiBusy
+            setOnEditorActionListener { _, id, _ -> if (id == EditorInfo.IME_ACTION_SEND) { sendAiMessage(this); true } else false }
         }
-        inputRow.addView(messageInput, LinearLayout.LayoutParams(0, dp(62), 1f).apply {
-            rightMargin = dp(10)
-        })
-        val sendButton = Button(this).apply {
-            text = "Send  ➤"
-            isAllCaps = false
-            textSize = 15f
-            setTextColor(Color.WHITE)
-            background = navDrawable(true, false)
-            isFocusable = true
-            isEnabled = !aiBusy && !savedKey.isNullOrBlank()
-            setOnClickListener { sendAiMessage(messageInput) }
+        activeAiInput = input
+        row.addView(input, LinearLayout.LayoutParams(0, dp(60), 1f).apply { rightMargin = dp(8) })
+        val mic = Button(this).apply {
+            text = if (speechListening) "Stop mic" else "Mic"
+            isAllCaps = false; textSize = 14f; setTextColor(Color.WHITE)
+            background = navDrawable(false, false); isFocusable = true
+            setOnClickListener { if (speechListening) stopVoiceInput() else startVoiceInput(input) }
         }
-        inputRow.addView(sendButton, LinearLayout.LayoutParams(dp(116), dp(58)))
-        parent.addView(inputRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+        aiMicButton = mic
+        row.addView(mic, LinearLayout.LayoutParams(dp(92), dp(56)).apply { rightMargin = dp(8) })
+        val send = Button(this).apply {
+            text = "Send  ➤"; isAllCaps = false; textSize = 14f; setTextColor(Color.WHITE)
+            background = navDrawable(true, false); isFocusable = true; isEnabled = !aiBusy
+            setOnClickListener { sendAiMessage(input) }
+        }
+        row.addView(send, LinearLayout.LayoutParams(dp(106), dp(56)))
+        parent.addView(row, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8); bottomMargin = dp(10) })
 
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val newChat = navButton("↻   New chat", false) {
-            aiMessages.clear()
-            aiStatusMessage = null
+        actions.addView(navButton("＋  New chat", false) {
+            aiMessages.clear(); aiStatusMessage = null
             prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).remove(KEY_GEMINI_MODEL).apply()
             renderPage(PAGE_AI)
-        }
-        actions.addView(newChat, LinearLayout.LayoutParams(-2, dp(46)).apply { rightMargin = dp(10) })
-        if (!savedKey.isNullOrBlank()) {
-            val remove = navButton("Remove API key", false) {
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Remove Gemini API key?")
-                    .setMessage("BixSigma AI will stop replying until a key is added again.")
-                    .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Remove") { _, _ ->
-                        keyVault.clear()
-                        prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).apply()
-                        aiMessages.clear()
-                        renderPage(PAGE_AI)
-                    }
-                    .show()
-            }
-            actions.addView(remove, LinearLayout.LayoutParams(-2, dp(46)))
-        }
-        parent.addView(actions, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8) })
+        }, LinearLayout.LayoutParams(-2, dp(46)).apply { rightMargin = dp(9) })
+        if (!savedKey.isNullOrBlank()) actions.addView(navButton("Remove API key", false) {
+            AlertDialog.Builder(this@MainActivity).setTitle("Remove API key?")
+                .setMessage("BixSigma AI will stop replying until a key is added again.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Remove") { _, _ ->
+                    keyVault.clear()
+                    prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).remove(KEY_GEMINI_MODEL).apply()
+                    aiMessages.clear(); renderPage(PAGE_AI)
+                }.show()
+        }, LinearLayout.LayoutParams(-2, dp(46)))
+        parent.addView(actions, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(2) })
     }
 
     private fun aiChatBubble(role: String, message: String): View {
         val assistant = role == "assistant"
-        val card = glassCard(false).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(12))
-        }
-        card.addView(textView(if (assistant) "BIXSIGMA AI" else "YOU", 11, if (assistant) accent else textMuted, true))
-        card.addView(textView(message, 15, textLight).apply {
-            setPadding(0, dp(5), 0, 0)
-            setTextIsSelectable(true)
-        })
+        val card = glassCard(false).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(12), dp(16), dp(10)) }
+        card.addView(textView(if (assistant) "BIXSIGMA AI" else "YOU", 10, if (assistant) accent else textMuted, true))
+        card.addView(textView(message, 15, textLight).apply { setPadding(0, dp(5), 0, dp(6)); setTextIsSelectable(true) })
+        if (assistant) card.addView(navButton("◖))  Listen to reply", false) { speakAnswer(message) },
+            LinearLayout.LayoutParams(-2, dp(42)))
         return card
     }
 
-    private fun showGeminiKeyDialog() {
+    private fun showAiKeyDialog() {
         val input = EditText(this).apply {
-            hint = "Paste your Gemini API key"
+            hint = "Paste your API key"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             setText(keyVault.read().orEmpty())
-            setPadding(dp(14), dp(12), dp(14), dp(12))
-            setTextColor(textLight)
-            setHintTextColor(textMuted)
+            setPadding(dp(14), dp(12), dp(14), dp(12)); setTextColor(textLight); setHintTextColor(textMuted)
         }
         val holder = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(8), dp(22), 0)
+            orientation = LinearLayout.VERTICAL; setPadding(dp(22), dp(8), dp(22), 0)
             addView(input, LinearLayout.LayoutParams(-1, dp(56)))
-            addView(textView("Get a key from Google AI Studio. It is saved on this TV, not uploaded to this GitHub repository.", 12, textMuted).apply {
+            addView(textView("Create or copy your key, then paste it here. It stays on this TV and is not saved in the repository.", 12, textMuted).apply {
                 setPadding(0, dp(10), 0, 0)
             })
         }
-        AlertDialog.Builder(this)
-            .setTitle("Connect Gemini API")
-            .setView(holder)
+        AlertDialog.Builder(this).setTitle("Add API key").setView(holder)
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Save key") { _, _ ->
-                val value = input.text?.toString()?.trim().orEmpty()
-                if (value.length < 20) {
-                    toast("Please paste a valid-looking Gemini API key.")
-                } else {
-                    try {
-                        keyVault.save(value)
-                        prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).remove(KEY_GEMINI_MODEL).apply()
-                        aiMessages.clear()
-                        aiStatusMessage = "Gemini key saved. Tap Test Gemini connection to verify it."
-                        renderPage(PAGE_AI)
-                        toast("Gemini API key saved on this TV")
-                    } catch (error: Exception) {
-                        toast(error.message ?: "Could not save the API key.")
-                    }
-                }
-            }
-            .show()
+                val key = input.text?.toString()?.trim().orEmpty()
+                if (key.length < 20) toast("Please paste a valid API key.")
+                else try {
+                    keyVault.save(key)
+                    prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).remove(KEY_GEMINI_MODEL).apply()
+                    aiMessages.clear(); aiStatusMessage = "API key saved. BixSigma AI is ready."
+                    renderPage(PAGE_AI); toast("API key saved on this TV.")
+                } catch (error: Exception) { toast(error.message ?: "Could not save the API key.") }
+            }.show()
     }
 
-    private fun testGeminiConnection() {
-        val key = keyVault.read()
-        if (key.isNullOrBlank()) {
-            showGeminiKeyDialog()
-            return
-        }
-        if (aiBusy) return
-        aiBusy = true
-        aiStatusMessage = "Testing Gemini connection…"
-        renderPage(PAGE_AI)
-        aiExecutor.execute {
-            try {
-                val result = GeminiApi.send(key, "Reply with exactly: BixSigma AI is connected and ready.")
-                mainHandler.post {
-                    prefs.edit()
-                        .putString(KEY_GEMINI_MODEL, result.model)
-                        .remove(KEY_GEMINI_INTERACTION_ID)
-                        .apply()
-                    aiBusy = false
-                    aiStatusMessage = "Connection successful: ${GeminiApi.modelName(result.model)} is ready."
-                    if (currentPage == PAGE_AI) renderPage(PAGE_AI)
-                    toast("Gemini connection successful")
-                }
-            } catch (error: Exception) {
-                mainHandler.post {
-                    aiBusy = false
-                    aiStatusMessage = error.message ?: "Gemini connection failed. Check your internet and API key."
-                    if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+    private fun openApiKeyPortal() {
+        try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey"))) }
+        catch (_: Exception) { toast("Open the key provider dashboard in your browser.") }
+    }
+
+    private fun requestDefaultAssistant() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val manager = getSystemService(RoleManager::class.java)
+                if (manager != null && manager.isRoleAvailable(RoleManager.ROLE_ASSISTANT)) {
+                    if (manager.isRoleHeld(RoleManager.ROLE_ASSISTANT)) toast("BixSigma AI is already selected as the assistant.")
+                    else startActivityForResult(manager.createRequestRoleIntent(RoleManager.ROLE_ASSISTANT), REQUEST_ASSISTANT_ROLE)
+                    return
                 }
             }
+            startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
+        } catch (_: Exception) {
+            try { startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)) }
+            catch (_: Exception) { toast("This TV does not expose a changeable assistant setting.") }
         }
+    }
+
+    private fun initializeTextToSpeech() {
+        textToSpeech = TextToSpeech(this) { result ->
+            textToSpeechReady = result == TextToSpeech.SUCCESS
+            if (textToSpeechReady) {
+                val lang = textToSpeech?.setLanguage(Locale.getDefault())
+                if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED)
+                    textToSpeech?.language = Locale.US
+            }
+        }
+    }
+
+    private fun speakAnswer(text: String) {
+        if (!textToSpeechReady || textToSpeech == null) { toast("Voice playback is not ready on this TV yet."); return }
+        textToSpeech?.stop()
+        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "bixsigma-" + System.currentTimeMillis())
+    }
+
+    private fun startVoiceInput(input: EditText) {
+        if (aiBusy) { toast("Wait for the current reply to finish."); return }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            pendingSpeechInput = input
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC_PERMISSION)
+            return
+        }
+        startSpeechRecognition(input)
+    }
+
+    private fun startSpeechRecognition(input: EditText) {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) { toast("Speech recognition is not available on this TV."); return }
+        try {
+            speechRecognizer?.cancel(); speechRecognizer?.destroy()
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    speechListening = true
+                    mainHandler.post { aiMicButton?.text = "Stop mic"; toast("Listening… speak now.") }
+                }
+                override fun onBeginningOfSpeech() { }
+                override fun onRmsChanged(rmsdB: Float) { }
+                override fun onBufferReceived(buffer: ByteArray?) { }
+                override fun onEndOfSpeech() { speechListening = false; mainHandler.post { aiMicButton?.text = "Mic" } }
+                override fun onError(error: Int) {
+                    speechListening = false
+                    mainHandler.post {
+                        aiMicButton?.text = "Mic"
+                        toast(when (error) {
+                            SpeechRecognizer.ERROR_AUDIO -> "Microphone audio could not be captured."
+                            SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Speech recognition network is unavailable."
+                            SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected. Press Mic and try again."
+                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission is required."
+                            else -> "Voice input stopped. Please try again."
+                        })
+                    }
+                    try { speechRecognizer?.destroy() } catch (_: Exception) { }
+                    speechRecognizer = null
+                }
+                override fun onResults(results: Bundle?) {
+                    speechListening = false
+                    val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                    mainHandler.post {
+                        aiMicButton?.text = "Mic"
+                        if (spoken.isNotBlank()) {
+                            input.setText(spoken); input.setSelection(input.text.length); input.requestFocus()
+                            toast("Transcript ready. Review it, then press Send.")
+                        } else toast("No words were recognized. Try again.")
+                    }
+                    try { speechRecognizer?.destroy() } catch (_: Exception) { }
+                    speechRecognizer = null
+                }
+                override fun onPartialResults(results: Bundle?) {
+                    val partial = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                    if (!partial.isNullOrBlank()) mainHandler.post { input.setText(partial); input.setSelection(input.text.length) }
+                }
+                override fun onEvent(eventType: Int, params: Bundle?) { }
+            })
+            val request = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to BixSigma AI")
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+            }
+            speechRecognizer?.startListening(request); speechListening = true; aiMicButton?.text = "Listening…"
+        } catch (_: Exception) {
+            speechListening = false; aiMicButton?.text = "Mic"
+            toast("Could not start the microphone. Check TV microphone permissions.")
+        }
+    }
+
+    private fun stopVoiceInput() {
+        try { speechRecognizer?.stopListening() } catch (_: Exception) { try { speechRecognizer?.cancel() } catch (_: Exception) { } }
+        speechListening = false; aiMicButton?.text = "Mic"
+    }
+
+    private fun openAiAndListen() {
+        renderPage(PAGE_AI)
+        mainHandler.postDelayed({ activeAiInput?.let { startVoiceInput(it) } ?: toast("Open BixSigma AI and press Mic.") }, 650L)
+    }
+
+    private fun handleLocalAiCommand(prompt: String): Boolean {
+        val lower = prompt.trim().lowercase(Locale.getDefault())
+        val match = Regex("^(?:please\\s+)?(?:open|launch|start|kholo|khol\\s+do|chalao|chala\\s+do|play)\\s+(.+)$").find(lower) ?: return false
+        val target = match.groupValues[1].trim().removeSuffix(" please").removeSuffix(" kar do").removeSuffix(" kardo")
+        if (target.isBlank()) return false
+        aiMessages.add("user" to prompt)
+        val aliases = mapOf(
+            "spotify" to listOf("spotify", "com.spotify"),
+            "youtube" to listOf("youtube", "com.google.android.youtube"),
+            "netflix" to listOf("netflix", "com.netflix"),
+            "prime video" to listOf("prime video", "amazon video"),
+            "chrome" to listOf("chrome", "com.android.chrome")
+        )
+        val search = aliases.entries.firstOrNull { target.contains(it.key) }?.value ?: listOf(target.replace(" ", ""))
+        val app = getLaunchableApps().firstOrNull { candidate ->
+            val label = candidate.label.lowercase(Locale.getDefault())
+            val pkg = candidate.packageName.lowercase(Locale.getDefault())
+            search.any { label.contains(it) || pkg.contains(it.replace(" ", "")) }
+        }
+        if (app != null) {
+            aiMessages.add("assistant" to "Opening ${app.label}.")
+            renderPage(PAGE_AI); launchApp(app.packageName)
+        } else {
+            val name = target.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+            aiMessages.add("assistant" to "I couldn't find $name in the apps installed on this TV.")
+            renderPage(PAGE_AI)
+        }
+        return true
     }
 
     private fun sendAiMessage(input: EditText) {
         val prompt = input.text?.toString()?.trim().orEmpty()
-        if (prompt.isBlank()) {
-            toast("Write a message first")
-            return
-        }
-        val key = keyVault.read()
-        if (key.isNullOrBlank()) {
-            showGeminiKeyDialog()
-            return
-        }
+        if (prompt.isBlank()) { toast("Type or speak a question first."); return }
         if (aiBusy) return
+        if (handleLocalAiCommand(prompt)) { input.setText(""); return }
+        val key = keyVault.read()
+        if (key.isNullOrBlank()) { showAiKeyDialog(); return }
 
-        val previousId = prefs.getString(KEY_GEMINI_INTERACTION_ID, null)
-        val preferredModel = prefs.getString(KEY_GEMINI_MODEL, GeminiApi.MODEL) ?: GeminiApi.MODEL
         aiMessages.add("user" to prompt)
-        val fallbackContext = aiMessages.dropLast(1).takeLast(12).joinToString("\n") { (role, text) ->
-            (if (role == "assistant") "BixSigma AI: " else "User: ") + text
-        }.let { history ->
-            if (history.isBlank()) prompt
-            else "Continue this conversation using the same context.\n$history\nUser: $prompt\nBixSigma AI:"
+        val context = aiMessages.dropLast(1).takeLast(8).joinToString("\n") { (role, line) ->
+            (if (role == "assistant") "BixSigma AI: " else "User: ") + line.take(1200)
         }
-        aiBusy = true
-        aiStatusMessage = "Connecting to Gemini… automatic fallback is enabled."
-        renderPage(PAGE_AI)
-
+        val fullPrompt = if (context.isBlank()) prompt else "Conversation context:\n$context\n\nLatest user message: $prompt\nAnswer the latest message directly and naturally."
+        aiBusy = true; aiStatusMessage = null; input.setText(""); renderPage(PAGE_AI)
         aiExecutor.execute {
             try {
-                val result = GeminiApi.send(
-                    apiKey = key,
-                    prompt = prompt,
-                    previousInteractionId = previousId,
-                    preferredModel = preferredModel,
-                    fallbackPrompt = fallbackContext
-                )
+                val reply = GeminiApi.send(apiKey = key, prompt = fullPrompt, previousInteractionId = null,
+                    preferredModel = GeminiApi.MODEL, fallbackPrompt = null)
                 mainHandler.post {
-                    aiMessages.add("assistant" to result.text)
-                    prefs.edit()
-                        .putString(KEY_GEMINI_INTERACTION_ID, result.interactionId)
-                        .putString(KEY_GEMINI_MODEL, result.model)
-                        .apply()
-                    aiBusy = false
-                    aiStatusMessage = if (result.model != preferredModel) {
-                        "Google's ${GeminiApi.modelName(preferredModel)} is busy. NEXA switched to ${GeminiApi.modelName(result.model)} automatically."
-                    } else {
-                        null
-                    }
+                    aiMessages.add("assistant" to reply.text)
+                    prefs.edit().remove(KEY_GEMINI_INTERACTION_ID).putString(KEY_GEMINI_MODEL, reply.model).apply()
+                    aiBusy = false; aiStatusMessage = null
                     if (currentPage == PAGE_AI) renderPage(PAGE_AI)
                 }
             } catch (error: Exception) {
                 mainHandler.post {
                     aiBusy = false
-                    aiStatusMessage = error.message ?: "Could not reach Gemini. Check your internet and try again."
+                    aiStatusMessage = when (error) {
+                        is java.net.SocketTimeoutException -> "The reply took too long. Check your connection and try again."
+                        is java.io.IOException -> "The AI service could not be reached. Check the internet and try again."
+                        else -> error.message?.takeIf { it.isNotBlank() } ?: "BixSigma AI could not reply. Please try again."
+                    }
                     if (currentPage == PAGE_AI) renderPage(PAGE_AI)
                 }
             }
@@ -1330,100 +1437,108 @@ class MainActivity : Activity() {
         return card
     }
 
-    private fun appTile(app: LaunchableApp, rowMode: Boolean = false): View {
+        private fun appTile(app: LaunchableApp, rowMode: Boolean = false): View {
         val tile = LinearLayout(this).apply {
             orientation = if (rowMode) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            background = cardDrawable(false)
-            isFocusable = true
-            isClickable = true
-            isLongClickable = true
-            contentDescription = "${app.label}. Hold OK for app options."
-            setOnFocusChangeListener { view, focused -> view.background = cardDrawable(focused) }
-            setOnClickListener { launchApp(app.packageName) }
-            setOnLongClickListener {
-                showAppOptions(app)
-                true
+            gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = cardDrawable(false); isFocusable = true; isClickable = true; isLongClickable = true
+            tag = "nexa_app_tile:${app.packageName}"
+            contentDescription = if (movingAppPackage == app.packageName)
+                "Moving ${app.label}. Use directional buttons and press OK to finish."
+            else "${app.label}. Hold OK for app options."
+            setOnFocusChangeListener { view, focused ->
+                view.background = cardDrawable(focused)
+                view.animate().scaleX(if (focused) 1.035f else 1f).scaleY(if (focused) 1.035f else 1f).setDuration(120L).start()
+            }
+            setOnClickListener { if (movingAppPackage != null) finishAppMove() else launchApp(app.packageName) }
+            setOnLongClickListener { if (movingAppPackage == null) showAppOptions(app); true }
+            setOnKeyListener { _, code, event ->
+                if (movingAppPackage != app.packageName || event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                when (code) {
+                    KeyEvent.KEYCODE_DPAD_LEFT -> { if (!rowMode) moveAppByDirection(app, MOVE_LEFT); true }
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> { if (!rowMode) moveAppByDirection(app, MOVE_RIGHT); true }
+                    KeyEvent.KEYCODE_DPAD_UP -> { moveAppByDirection(app, MOVE_UP); true }
+                    KeyEvent.KEYCODE_DPAD_DOWN -> { moveAppByDirection(app, MOVE_DOWN); true }
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { finishAppMove(); true }
+                    else -> false
+                }
             }
         }
-        val icon = ImageView(this).apply {
-            setImageDrawable(app.icon)
-            scaleType = ImageView.ScaleType.FIT_CENTER
-        }
-        val iconSize = if (rowMode) 54 else 58
-        tile.addView(icon, LinearLayout.LayoutParams(dp(iconSize), dp(iconSize)).apply {
+        val icon = ImageView(this).apply { setImageDrawable(app.icon); scaleType = ImageView.ScaleType.FIT_CENTER }
+        val iconDp = if (rowMode) 54 else 58
+        tile.addView(icon, LinearLayout.LayoutParams(dp(iconDp), dp(iconDp)).apply {
             if (rowMode) rightMargin = dp(16) else bottomMargin = dp(9)
         })
         val label = textView(app.label, 14, textLight, true).apply {
             gravity = if (rowMode) Gravity.CENTER_VERTICAL or Gravity.START else Gravity.CENTER
-            maxLines = 2
-            ellipsize = android.text.TextUtils.TruncateAt.END
+            maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
         }
         if (rowMode) {
             tile.addView(label, LinearLayout.LayoutParams(0, -2, 1f))
-            tile.addView(textView("HOLD OK  ·  OPTIONS", 10, textMuted, true).apply {
-                gravity = Gravity.CENTER_VERTICAL
-            })
-        } else {
-            tile.addView(label, LinearLayout.LayoutParams(-1, -2))
-        }
+            tile.addView(textView("HOLD OK  ·  OPTIONS", 10, textMuted, true).apply { gravity = Gravity.CENTER_VERTICAL })
+        } else tile.addView(label, LinearLayout.LayoutParams(-1, -2))
         return tile
+    }
+
+    private fun beginAppMove(app: LaunchableApp) {
+        movingAppPackage = app.packageName; focusAppAfterRender = app.packageName
+        renderPage(PAGE_APPS)
+        toast("Move mode: use LEFT, RIGHT, UP and DOWN. Press OK to finish.")
+    }
+
+    private fun moveAppByDirection(app: LaunchableApp, direction: Int) {
+        val apps = getLaunchableApps().toMutableList()
+        val index = apps.indexOfFirst { it.packageName == app.packageName }
+        if (index < 0) return
+        val cols = if (prefs.getBoolean(KEY_APPS_ROWS, false)) 1 else appGridColumns.coerceAtLeast(1)
+        val target = when (direction) {
+            MOVE_LEFT -> if (cols > 1 && index % cols > 0) index - 1 else -1
+            MOVE_RIGHT -> if (cols > 1 && index % cols < cols - 1 && index + 1 < apps.size) index + 1 else -1
+            MOVE_UP -> index - cols
+            MOVE_DOWN -> index + cols
+            else -> -1
+        }
+        if (target !in apps.indices) return
+        val other = apps[target]; apps[target] = apps[index]; apps[index] = other
+        prefs.edit().putString(KEY_APP_ORDER, apps.joinToString("|") { it.packageName }).apply()
+        focusAppAfterRender = app.packageName; renderPage(PAGE_APPS)
+    }
+
+    private fun finishAppMove() {
+        val selected = movingAppPackage; movingAppPackage = null
+        focusAppAfterRender = selected; renderPage(PAGE_APPS); toast("App position saved.")
     }
 
     private fun showAppOptions(app: LaunchableApp) {
         val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(18), dp(20), dp(18))
+            orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(18), dp(20), dp(18))
             background = cardDrawable(false, true)
         }
         panel.addView(textView(app.label, 22, textLight, true))
-        panel.addView(textView("Application options", 12, textMuted).apply {
-            setPadding(0, dp(3), 0, dp(14))
-        })
+        panel.addView(textView("Application options", 12, textMuted).apply { setPadding(0, dp(3), 0, dp(14)) })
         val dialog = AlertDialog.Builder(this).create()
-
-        fun addOption(title: String, subtitle: String, action: () -> Unit) {
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(15), dp(10), dp(15), dp(10))
-                background = cardDrawable(false)
-                isFocusable = true
-                isClickable = true
-                setOnFocusChangeListener { view, focused -> view.background = cardDrawable(focused) }
-                setOnClickListener {
-                    dialog.dismiss()
-                    action()
-                }
+        fun option(title: String, subtitle: String, action: () -> Unit): View {
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(15), dp(10), dp(15), dp(10)); background = cardDrawable(false)
+                isFocusable = true; isClickable = true
+                setOnFocusChangeListener { view, focus -> view.background = cardDrawable(focus) }
+                setOnClickListener { dialog.dismiss(); action() }
             }
-            row.addView(textView(title, 16, textLight, true))
-            row.addView(textView(subtitle, 11, textMuted).apply { setPadding(0, dp(2), 0, 0) })
-            panel.addView(row, LinearLayout.LayoutParams(-1, dp(62)).apply { bottomMargin = dp(7) })
+            item.addView(textView(title, 16, textLight, true))
+            item.addView(textView(subtitle, 11, textMuted).apply { setPadding(0, dp(2), 0, 0) })
+            panel.addView(item, LinearLayout.LayoutParams(-1, dp(62)).apply { bottomMargin = dp(7) })
+            return item
         }
-
-        addOption("▶   Open app", "Launch this application") { launchApp(app.packageName) }
-        addOption(
-            if (isFavoritePackage(app.packageName)) "★   Remove from Favorites" else "☆   Add to Favorites",
-            if (isFavoritePackage(app.packageName)) "Remove this app from the NEXA Home screen" else "Show this app in the Home Favorites row"
-        ) { toggleFavorite(app) }
-        addOption("↑   Move app up", "Move it earlier in the Apps library and Favorites row") {
-            moveAppInLibrary(app, -1)
-        }
-        addOption("↓   Move app down", "Move it later in the Apps library and Favorites row") {
-            moveAppInLibrary(app, 1)
-        }
-        addOption("↕   Move to position", "Choose the exact place in the Apps library") {
-            showMoveAppDialog(app)
-        }
-        addOption("▣   Uninstall app", "Open Android's system uninstall confirmation") {
-            requestAppUninstall(app)
-        }
-        addOption("Close", "Return to the application library") { }
-        dialog.setView(panel)
-        dialog.setCanceledOnTouchOutside(true)
-        dialog.show()
-        dialog.window?.setLayout(dp(500), -2)
+        val first = option("▶   Open app", "Launch this application") { launchApp(app.packageName) }
+        option(if (isFavoritePackage(app.packageName)) "★   Remove from Favorites" else "☆   Add to Favorites",
+            if (isFavoritePackage(app.packageName)) "Remove this app from Home Favorites" else "Show it in Home Favorites") { toggleFavorite(app) }
+        option("↔   Move app", "Use LEFT / RIGHT / UP / DOWN on the remote to place it") { beginAppMove(app) }
+        option("▣   Uninstall app", "Open Android's system uninstall confirmation") { requestAppUninstall(app) }
+        option("Close", "Return to the application library") { }
+        dialog.setView(panel); dialog.setCanceledOnTouchOutside(true)
+        dialog.setOnShowListener { first.requestFocus() }
+        dialog.show(); dialog.window?.setLayout(dp(500), -2)
     }
 
     private fun favoritePackages(): MutableList<String> {
@@ -1818,6 +1933,13 @@ String): TextView = textView(title, 21, textLight, true).apply {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
 
     companion object {
+        internal const val EXTRA_START_AI_VOICE = "com.qasim.nexa.launcher.START_AI_VOICE"
+        private const val REQUEST_MIC_PERMISSION = 7201
+        private const val REQUEST_ASSISTANT_ROLE = 7202
+        private const val MOVE_LEFT = -1
+        private const val MOVE_RIGHT = 1
+        private const val MOVE_UP = -2
+        private const val MOVE_DOWN = 2
         private const val PAGE_HOME = "home"
         private const val PAGE_APPS = "apps"
         private const val PAGE_CUSTOMIZE = "customize"
