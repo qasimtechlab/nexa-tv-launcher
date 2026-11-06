@@ -5,35 +5,79 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#202124">
   <meta name="color-scheme" content="dark">
-  <title>NEXA TV Launcher — Android TV App | Download APK</title>
-  <meta name="description" content="Explore NEXA TV Launcher by Mirza Qasim. A modern Android TV home screen with remote-first navigation, app organization, customization and BixSigma AI. Download the free APK.">
-  <meta name="keywords" content="NEXA TV Launcher, Android TV launcher, Smart TV launcher, TV box launcher, Android TV APK, Mirza Qasim">
+  <title>NEXA TV Launcher APK Download | Android TV &amp; TV Box</title>
+  <meta name="description" content="Download NEXA TV Launcher APK for Android TV and compatible TV boxes. Organize apps, navigate with your remote, customize wallpapers and explore BixSigma AI.">
   <meta name="author" content="Mirza Qasim">
-  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="application-name" content="NEXA TV Launcher">
+  <meta name="apple-mobile-web-app-title" content="NEXA TV Launcher">
   <link rel="canonical" href="https://nexa-tv-launcher.vercel.app/">
   <link rel="icon" type="image/svg+xml" href="/assets/nexa-mark.svg?v=2">
   <link rel="manifest" href="/manifest.webmanifest">
   <meta property="og:type" content="website">
   <meta property="og:title" content="NEXA TV Launcher — App details">
-  <meta property="og:description" content="A modern Android TV launcher designed for big screens and remote-first navigation.">
+  <meta property="og:description" content="A free Android TV launcher APK for compatible TV boxes, with remote-first app navigation, wallpapers, widgets and BixSigma AI.">
   <meta property="og:url" content="https://nexa-tv-launcher.vercel.app/">
   <meta property="og:image" content="https://nexa-tv-launcher.vercel.app/assets/og-preview.svg">
+  <meta property="og:image:alt" content="NEXA TV Launcher, a customizable Android TV home screen by Mirza Qasim">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="NEXA TV Launcher">
-  <meta name="twitter:description" content="A modern Android TV launcher by Mirza Qasim. Download the APK.">
+  <meta name="twitter:description" content="Download the free NEXA TV Launcher APK for Android TV and compatible TV boxes.">
   <meta name="twitter:image" content="https://nexa-tv-launcher.vercel.app/assets/og-preview.svg">
+  <meta name="twitter:image:alt" content="NEXA TV Launcher Android TV home screen app">
   <script type="application/ld+json">
   {
-    "@context":"https://schema.org",
-    "@type":"SoftwareApplication",
-    "name":"NEXA TV Launcher",
-    "applicationCategory":"UtilitiesApplication",
-    "operatingSystem":"Android 5.0 and later",
-    "softwareVersion":"1.3.2",
-    "downloadUrl":"https://nexa-tv-launcher.vercel.app/download",
-    "description":"A customizable Android TV launcher with remote-first navigation, favourite apps, visual customization and BixSigma AI features.",
-    "author":{"@type":"Person","name":"Mirza Qasim","address":{"@type":"PostalAddress","addressLocality":"Faisalabad","addressCountry":"PK"}},
-    "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://nexa-tv-launcher.vercel.app/#website",
+        "url": "https://nexa-tv-launcher.vercel.app/",
+        "name": "NEXA TV Launcher",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "Person",
+        "@id": "https://nexa-tv-launcher.vercel.app/#developer",
+        "name": "Mirza Qasim"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://nexa-tv-launcher.vercel.app/#software",
+        "name": "NEXA TV Launcher",
+        "url": "https://nexa-tv-launcher.vercel.app/",
+        "mainEntityOfPage": "https://nexa-tv-launcher.vercel.app/",
+        "applicationCategory": "UtilitiesApplication",
+        "applicationSubCategory": "Android TV launcher",
+        "operatingSystem": "Android 5.0 and later",
+        "softwareVersion": "1.3.2",
+        "downloadUrl": "https://nexa-tv-launcher.vercel.app/download",
+        "description": "A free Android TV home-screen launcher for compatible Android TV devices and TV boxes. Features remote-first navigation, app organization, wallpaper customization, widgets, curated public video feeds and BixSigma AI.",
+        "featureList": [
+          "D-pad, OK and Back remote navigation",
+          "Installed app library with Grid and Rows layouts",
+          "Favourite apps and manual app ordering",
+          "Home screen wallpapers and visual themes",
+          "Clock, date and optional animated widgets",
+          "Curated Hindi and Urdu public YouTube channel feeds",
+          "BixSigma AI chat using the user's own API key"
+        ],
+        "screenshot": [
+          "https://nexa-tv-launcher.vercel.app/screenshots/Create_modern_launcher_screensho%E2%80%A6_568319f5.jpg",
+          "https://nexa-tv-launcher.vercel.app/screenshots/Creating_Android_TV_launcher_scr%E2%80%A6_c2c772bf.jpg",
+          "https://nexa-tv-launcher.vercel.app/screenshots/Smart_TV_launcher_displaying_UI_c32512a7.jpg"
+        ],
+        "author": {
+          "@id": "https://nexa-tv-launcher.vercel.app/#developer"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD",
+          "url": "https://nexa-tv-launcher.vercel.app/download"
+        }
+      }
+    ]
   }
   </script>
   <style>
@@ -93,6 +137,13 @@
     .lightbox button:focus-visible{outline:3px solid var(--blue);outline-offset:4px}
     body.viewer-open{overflow:hidden}
     .about-copy{color:var(--muted);font-size:14px;max-width:760px;margin:10px 0 15px}
+    .feature-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .feature-card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:16px}
+    .feature-card h3{font-size:15px;font-weight:600;margin:0 0 7px;color:var(--text)}
+    .feature-card p{font-size:13px;color:var(--muted);margin:0}
+    .install-steps{color:var(--muted);font-size:14px;padding-left:22px;max-width:760px}
+    .install-steps li{padding:5px 0 5px 4px}
+    .inline-link{color:var(--blue);text-decoration:underline;text-underline-offset:3px}
     .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
     .chip{border:1px solid #5f6368;border-radius:8px;color:var(--muted);font-size:12px;padding:7px 11px}
     .details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 30px}
@@ -139,6 +190,7 @@
       h2{font-size:19px}
       .screen-card{flex-basis:78%}
       .details{grid-template-columns:1fr}
+      .feature-grid{grid-template-columns:1fr}
       .sticky-install{display:block;position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 15px calc(10px + env(safe-area-inset-bottom));background:rgba(32,33,36,.95);backdrop-filter:blur(12px);border-top:1px solid var(--line)}
       .sticky-install .install{min-height:48px;font-size:17px}
       footer{padding-bottom:100px}
@@ -161,7 +213,7 @@
       <div>
         <h1 id="appName">NEXA TV Launcher</h1>
         <p class="developer">Mirza Qasim</p>
-        <div class="app-subline"><span>Android TV</span><span class="dot">•</span><span>Free download</span><span class="dot">•</span><span>Version <span data-release-version>1.3.2</span></span></div>
+        <div class="app-subline"><span>Android TV &amp; compatible TV boxes</span><span class="dot">•</span><span>Free APK</span><span class="dot">•</span><span>Version <span data-release-version>1.3.2</span></span></div>
       </div>
     </section>
 
@@ -172,7 +224,7 @@
     </section>
 
     <a class="install" href="/download" id="installButton">Install</a>
-    <p class="install-note">Direct APK download · Free · Android TV / TV boxes</p>
+    <p class="install-note">Free APK download for compatible Android TV devices · Current release is a debug/test build</p>
 
     <section class="section" id="screenshots">
       <div class="section-head"><h2>Screenshots</h2><a class="see-all" href="#screenshots">View gallery</a></div>
@@ -200,9 +252,35 @@
     </section>
 
     <section class="section" id="about">
-      <div class="section-head"><h2>About this app</h2><a class="see-all" href="#details">Details</a></div>
-      <p class="about-copy">NEXA TV Launcher gives your Android TV box a clean, customizable home screen. Organize favourite apps, navigate with your remote, personalize wallpapers and widgets, explore curated Hindi and Urdu video channels, and access BixSigma AI features.</p>
-      <div class="chips"><span class="chip">Remote-first controls</span><span class="chip">App organization</span><span class="chip">Custom wallpapers</span><span class="chip">BixSigma AI</span><span class="chip">Android TV</span></div>
+      <div class="section-head"><h2>Free Android TV Launcher for TV Boxes</h2><a class="see-all" href="#details">App details</a></div>
+      <p class="about-copy">NEXA TV Launcher is a native Android TV home-screen launcher designed for compatible Android TV devices and TV boxes. It gives your television a clean home screen where you can open installed apps, arrange favourites and navigate with a TV remote instead of relying on a touchscreen. If you are looking for an Android TV launcher APK, a smart TV launcher for a compatible TV box, or a customizable TV home screen, NEXA brings these tools into one free-to-download app.</p>
+      <p class="about-copy">Created by independent developer Mirza Qasim, NEXA combines a remote-first app library with wallpaper controls, home-screen widgets, curated Hindi and Urdu public video feeds, and BixSigma AI chat. Device firmware can affect launcher selection and individual features, so install and test NEXA before setting it as your default Home app.</p>
+      <div class="chips"><span class="chip">Android TV launcher</span><span class="chip">TV box home screen</span><span class="chip">D-pad navigation</span><span class="chip">App organization</span><span class="chip">Wallpapers &amp; widgets</span><span class="chip">BixSigma AI</span></div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="section-head"><h2>Android TV Launcher Features</h2></div>
+      <div class="feature-grid">
+        <article class="feature-card"><h3>Remote-first navigation</h3><p>Move around the launcher with the remote's directional pad, OK or Center button, and Back button. NEXA is designed for a big-screen television interface.</p></article>
+        <article class="feature-card"><h3>Apps, favourites and layouts</h3><p>Browse installed apps in Grid or Rows layouts, add favourites, arrange app positions and open app options with a long press on OK or Center.</p></article>
+        <article class="feature-card"><h3>Wallpapers and appearance</h3><p>Choose from built-in gradient wallpapers or a local image, adjust framing and overlay, and select Glass, Dark or Light appearance with an accent colour.</p></article>
+        <article class="feature-card"><h3>Clock and animated widgets</h3><p>Use the home-screen clock and date, and choose optional offline animated widgets such as the Rotating Earth or Orbital Reactor.</p></article>
+        <article class="feature-card"><h3>Hindi and Urdu video feeds</h3><p>Explore curated public uploads from selected Pakistani and Indian channels across drama, movie, technology, gaming and vlog categories. These feeds are not global YouTube search or personalized account recommendations.</p></article>
+        <article class="feature-card"><h3>BixSigma AI assistant</h3><p>Open BixSigma AI chat using your own API key. AI requests need an internet connection and are subject to the API provider's model availability, quotas and terms.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="install-guide">
+      <div class="section-head"><h2>How to Download and Install NEXA TV Launcher</h2></div>
+      <p class="about-copy">The NEXA TV Launcher download is provided as an APK file for compatible Android TV devices and TV boxes. This is a direct APK download from the project release repository, not a Google Play Store installation.</p>
+      <ol class="install-steps">
+        <li>Select the <a href="/download" class="inline-link">Download / Install button</a> to get the latest NEXA APK.</li>
+        <li>Open the downloaded APK from your TV's Downloads folder or file manager.</li>
+        <li>If Android asks, allow your file manager or browser to install apps from that source, then continue with the installer.</li>
+        <li>Open NEXA from the TV Apps list and test remote navigation and the apps you use.</li>
+        <li>Only after testing, choose NEXA as your default Home app if your TV firmware offers that option. Keep the factory launcher available while testing.</li>
+      </ol>
+      <p class="install-note" style="text-align:left;margin:12px 0 0">Release notice: the currently published APK is a debug/test build and is not a production-signed Google Play release. Compatibility and default-launcher options can vary by device manufacturer and firmware.</p>
     </section>
 
     <section class="section" id="whats-new">
@@ -215,12 +293,12 @@
       <div class="section-head"><h2>App details</h2></div>
       <div class="details">
         <div class="detail"><span>Developer</span><strong>Mirza Qasim</strong></div>
-        <div class="detail"><span>Category</span><strong>Tools & Personalization</strong></div>
-        <div class="detail"><span>Platform</span><strong>Android / Android TV</strong></div>
-        <div class="detail"><span>Minimum Android</span><strong>Android 5.0 (API 21)</strong></div>
+        <div class="detail"><span>Category</span><strong>Android TV Launcher</strong></div>
+        <div class="detail"><span>Platform</span><strong>Android TV &amp; compatible TV boxes</strong></div>
+        <div class="detail"><span>Minimum Android</span><strong>Android 5.0+ (API 21)</strong></div>
         <div class="detail"><span>Package</span><strong>com.qasim.nexa.launcher</strong></div>
         <div class="detail"><span>Price</span><strong>Free</strong></div>
-        <div class="detail"><span>Download type</span><strong>APK file</strong></div>
+        <div class="detail"><span>Download type</span><strong>Direct APK file</strong></div>
         <div class="detail"><span>Build status</span><strong>Debug / test build</strong></div>
       </div>
     </section>
@@ -234,11 +312,16 @@
     </section>
 
     <section class="section faq" id="faq">
-      <div class="section-head"><h2>Before you install</h2></div>
-      <details><summary>Is NEXA TV Launcher on Google Play?</summary><p>This page provides a direct APK download. It is not a Google Play Store listing and NEXA is an independent project, not an official Google product.</p></details>
-      <details><summary>How do I install the APK?</summary><p>Download the APK, open it from your TV's Downloads or file manager, and allow installation from that source if Android asks. Keep your existing launcher available while testing.</p></details>
-      <details><summary>Will it work with my TV remote?</summary><p>NEXA is designed for D-pad, OK/Center and Back navigation. Exact behaviour can vary by TV box firmware and remote configuration.</p></details>
-      <details><summary>Is this a production-signed release?</summary><p>The currently distributed APK is a debug/test build. It is intended for testing and is not represented as a production-signed Play Store release.</p></details>
+      <div class="section-head"><h2>Android TV Launcher – Frequently Asked Questions</h2></div>
+      <details><summary>What is NEXA TV Launcher?</summary><p>NEXA is a native Android TV home-screen launcher. It helps you open and organize installed apps, manage favourites, customize wallpapers and navigate your TV with a remote.</p></details>
+      <details><summary>Is NEXA TV Launcher free to download?</summary><p>Yes. The NEXA APK download is free. BixSigma AI chat uses an API key supplied by the user, and AI usage may be subject to the API provider's free-tier limits, quotas and terms.</p></details>
+      <details><summary>Can I install NEXA on an Android TV box?</summary><p>NEXA targets Android 5.0 (API 21) and later and is designed for Android TV devices and compatible TV boxes. Actual installation, launcher selection and feature support depend on the device firmware.</p></details>
+      <details><summary>Does NEXA support a TV remote?</summary><p>NEXA is designed around D-pad directional navigation, the OK or Center button and Back. Exact remote behaviour can vary by TV box and its firmware.</p></details>
+      <details><summary>Can I rearrange apps and customize the TV home screen?</summary><p>Yes. The app library supports Grid and Rows layouts, favourites and manual app ordering. You can also customize wallpapers, framing, overlay, appearance and selected widgets.</p></details>
+      <details><summary>Does NEXA show personalized YouTube recommendations?</summary><p>No. NEXA displays recent public uploads from a curated list of Pakistani and Indian YouTube channels. It does not read private watch history, perform global YouTube search or reproduce the signed-in account's recommendation algorithm.</p></details>
+      <details><summary>Does BixSigma AI need an API key?</summary><p>Yes. BixSigma AI chat requires the user's own API key and an internet connection. The key is not included in the website download link or repository.</p></details>
+      <details><summary>Is NEXA TV Launcher available on Google Play?</summary><p>No. This page provides a direct APK download for testing. NEXA is an independent project and is not an official Google or Android product.</p></details>
+      <details><summary>Is the current NEXA APK production-signed?</summary><p>No. The currently distributed APK is a debug/test build, not a production-signed release. Install it for testing and keep your factory launcher enabled until you have checked compatibility.</p></details>
     </section>
   </main>
 
