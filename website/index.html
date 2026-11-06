@@ -73,8 +73,25 @@
     .see-all{font-size:13px;color:var(--blue);white-space:nowrap}
     .screens{display:flex;gap:12px;overflow-x:auto;overflow-y:hidden;padding:2px 1px 13px;scroll-snap-type:x mandatory;scrollbar-width:thin;scrollbar-color:#5f6368 transparent}
     .screen-card{flex:0 0 min(74%,330px);scroll-snap-align:start}
-    .screen-card img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#111820;border:1px solid #45474a;border-radius:13px}
+    .screen-open{display:block;width:100%;padding:0;border:0;border-radius:13px;background:transparent;cursor:zoom-in;text-align:left}
+    .screen-open img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#111820;border:1px solid #45474a;border-radius:13px;transition:transform .18s,filter .18s}
+    .screen-open:hover img{filter:brightness(1.08);transform:translateY(-2px)}
+    .screen-open:focus-visible{outline:3px solid var(--blue);outline-offset:4px}
     .screen-caption{font-size:12px;color:var(--muted);padding:8px 2px 0}
+    .lightbox{display:none;position:fixed;inset:0;z-index:1000;background:rgba(5,8,15,.97);color:#fff;align-items:center;justify-content:center;padding:calc(14px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom))}
+    .lightbox.is-open{display:flex}
+    .lightbox-toolbar{position:absolute;top:calc(10px + env(safe-area-inset-top));left:18px;right:18px;display:flex;align-items:center;justify-content:space-between;z-index:2}
+    .lightbox-count{font-size:13px;color:#d7deeb;background:rgba(255,255,255,.09);padding:7px 12px;border-radius:999px}
+    .lightbox-close,.lightbox-nav{border:1px solid rgba(255,255,255,.2);background:rgba(32,38,52,.8);color:#fff;display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(10px)}
+    .lightbox-close{width:44px;height:44px;border-radius:50%;font-size:27px;line-height:1}
+    .lightbox-stage{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;touch-action:pan-y}
+    .lightbox-image{display:block;max-width:calc(100vw - 40px);max-height:calc(100vh - 132px);max-height:calc(100dvh - 132px);width:auto;height:auto;object-fit:contain;border-radius:5px;box-shadow:0 18px 70px rgba(0,0,0,.5);user-select:none;-webkit-user-drag:none}
+    .lightbox-caption{margin:0;color:#d7deeb;font-size:13px;text-align:center}
+    .lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:54px;border-radius:16px;font-size:32px;line-height:1;z-index:2}
+    .lightbox-prev{left:18px}.lightbox-next{right:18px}
+    .lightbox-close:hover,.lightbox-nav:hover{background:rgba(87,111,151,.85)}
+    .lightbox button:focus-visible{outline:3px solid var(--blue);outline-offset:4px}
+    body.viewer-open{overflow:hidden}
     .about-copy{color:var(--muted);font-size:14px;max-width:760px;margin:10px 0 15px}
     .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
     .chip{border:1px solid #5f6368;border-radius:8px;color:var(--muted);font-size:12px;padding:7px 11px}
@@ -160,9 +177,24 @@
     <section class="section" id="screenshots">
       <div class="section-head"><h2>Screenshots</h2><a class="see-all" href="#screenshots">View gallery</a></div>
       <div class="screens" aria-label="NEXA TV Launcher screenshots">
-        <article class="screen-card"><img src="/screenshots/Create_modern_launcher_screensho%E2%80%A6_568319f5.jpg" alt="NEXA TV Launcher home screen displayed on a television" loading="lazy" decoding="async"><div class="screen-caption">Home screen</div></article>
-        <article class="screen-card"><img src="/screenshots/Creating_Android_TV_launcher_scr%E2%80%A6_c2c772bf.jpg" alt="NEXA TV Launcher customization and wallpaper interface" loading="lazy" decoding="async"><div class="screen-caption">Customize &amp; wallpapers</div></article>
-        <article class="screen-card"><img src="/screenshots/Smart_TV_launcher_displaying_UI_c32512a7.jpg" alt="BixSigma AI assistant interface inside NEXA TV Launcher" loading="lazy" decoding="async"><div class="screen-caption">BixSigma AI</div></article>
+        <article class="screen-card">
+          <button class="screen-open" type="button" data-gallery-index="0" aria-label="View Home screen screenshot full screen">
+            <img src="/screenshots/Create_modern_launcher_screensho%E2%80%A6_568319f5.jpg" alt="NEXA TV Launcher home screen displayed on a television" loading="lazy" decoding="async">
+          </button>
+          <div class="screen-caption">Home screen</div>
+        </article>
+        <article class="screen-card">
+          <button class="screen-open" type="button" data-gallery-index="1" aria-label="View Customize and wallpapers screenshot full screen">
+            <img src="/screenshots/Creating_Android_TV_launcher_scr%E2%80%A6_c2c772bf.jpg" alt="NEXA TV Launcher customization and wallpaper interface" loading="lazy" decoding="async">
+          </button>
+          <div class="screen-caption">Customize &amp; wallpapers</div>
+        </article>
+        <article class="screen-card">
+          <button class="screen-open" type="button" data-gallery-index="2" aria-label="View BixSigma AI screenshot full screen">
+            <img src="/screenshots/Smart_TV_launcher_displaying_UI_c32512a7.jpg" alt="BixSigma AI assistant interface inside NEXA TV Launcher" loading="lazy" decoding="async">
+          </button>
+          <div class="screen-caption">BixSigma AI</div>
+        </article>
       </div>
       <p class="install-note" style="text-align:left;margin:0">NEXA TV Launcher interface previews.</p>
     </section>
@@ -210,6 +242,19 @@
     </section>
   </main>
 
+  <div class="lightbox" id="imageViewer" role="dialog" aria-modal="true" aria-label="NEXA screenshots" aria-hidden="true">
+    <div class="lightbox-toolbar">
+      <span class="lightbox-count" id="viewerCount">1 / 3</span>
+      <button class="lightbox-close" id="viewerClose" type="button" aria-label="Close screenshot viewer">×</button>
+    </div>
+    <button class="lightbox-nav lightbox-prev" id="viewerPrev" type="button" aria-label="Previous screenshot">‹</button>
+    <div class="lightbox-stage" id="viewerStage">
+      <img class="lightbox-image" id="viewerImage" src="" alt="">
+      <p class="lightbox-caption" id="viewerCaption"></p>
+    </div>
+    <button class="lightbox-nav lightbox-next" id="viewerNext" type="button" aria-label="Next screenshot">›</button>
+  </div>
+
   <div class="sticky-install"><a class="install" href="/download">Install</a></div>
 
   <footer class="wrap">
@@ -230,6 +275,82 @@
           document.querySelectorAll('[data-release-version]').forEach(function(el){el.textContent=release.version;});
         })
         .catch(function(){});
+
+      var viewer=document.getElementById('imageViewer');
+      var viewerImage=document.getElementById('viewerImage');
+      var viewerCaption=document.getElementById('viewerCaption');
+      var viewerCount=document.getElementById('viewerCount');
+      var galleryButtons=Array.prototype.slice.call(document.querySelectorAll('.screen-open'));
+      var galleryItems=galleryButtons.map(function(button){
+        var img=button.querySelector('img');
+        return {src:img.src,alt:img.alt,caption:button.parentElement.querySelector('.screen-caption').textContent};
+      });
+      var activeIndex=0;
+      var lastTrigger=null;
+      var swipeStartX=null;
+
+      function showImage(index){
+        if(!galleryItems.length)return;
+        activeIndex=(index+galleryItems.length)%galleryItems.length;
+        var item=galleryItems[activeIndex];
+        viewerImage.src=item.src;
+        viewerImage.alt=item.alt;
+        viewerCaption.textContent=item.caption;
+        viewerCount.textContent=(activeIndex+1)+' / '+galleryItems.length;
+        document.getElementById('viewerPrev').disabled=galleryItems.length<2;
+        document.getElementById('viewerNext').disabled=galleryItems.length<2;
+      }
+      function openViewer(index,trigger){
+        lastTrigger=trigger||document.activeElement;
+        showImage(index);
+        viewer.classList.add('is-open');
+        viewer.setAttribute('aria-hidden','false');
+        document.body.classList.add('viewer-open');
+        document.getElementById('viewerClose').focus();
+      }
+      function closeViewer(){
+        if(!viewer.classList.contains('is-open'))return;
+        viewer.classList.remove('is-open');
+        viewer.setAttribute('aria-hidden','true');
+        document.body.classList.remove('viewer-open');
+        viewerImage.src='';
+        if(lastTrigger&&typeof lastTrigger.focus==='function')lastTrigger.focus();
+      }
+
+      galleryButtons.forEach(function(button,index){
+        button.addEventListener('click',function(){openViewer(index,button);});
+      });
+      document.getElementById('viewerClose').addEventListener('click',closeViewer);
+      document.getElementById('viewerPrev').addEventListener('click',function(){showImage(activeIndex-1);});
+      document.getElementById('viewerNext').addEventListener('click',function(){showImage(activeIndex+1);});
+      viewer.addEventListener('click',function(event){if(event.target===viewer)closeViewer();});
+      viewerImage.addEventListener('pointerdown',function(event){swipeStartX=event.clientX;});
+      viewerImage.addEventListener('pointerup',function(event){
+        if(swipeStartX===null)return;
+        var delta=event.clientX-swipeStartX;
+        swipeStartX=null;
+        if(Math.abs(delta)>55)showImage(activeIndex+(delta<0?1:-1));
+      });
+      viewerImage.addEventListener('pointercancel',function(){swipeStartX=null;});
+
+      document.addEventListener('keydown',function(event){
+        if(!viewer.classList.contains('is-open'))return;
+        if(event.key==='Escape'||event.key==='Backspace'){
+          event.preventDefault();closeViewer();return;
+        }
+        if(event.key==='ArrowRight'){
+          event.preventDefault();showImage(activeIndex+1);return;
+        }
+        if(event.key==='ArrowLeft'){
+          event.preventDefault();showImage(activeIndex-1);return;
+        }
+        if(event.key==='Tab'){
+          var controls=Array.prototype.slice.call(viewer.querySelectorAll('button:not([disabled])'));
+          var first=controls[0],last=controls[controls.length-1];
+          if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+          else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+        }
+      });
     })();
   </script>
 </body>
