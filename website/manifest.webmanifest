@@ -1,1 +1,16 @@
-{"name":"Nexa TV Launcher","short_name":"Nexa","start_url":"/","display":"standalone","background_color":"#070b14","theme_color":"#080d18","icons":[{"src":"/assets/nexa-mark.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
+{
+  "name": "NEXA TV Launcher",
+  "short_name": "NEXA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#202124",
+  "theme_color": "#202124",
+  "icons": [
+    {
+      "src": "/assets/nexa-mark.svg?v=2",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
