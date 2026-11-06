@@ -771,7 +771,7 @@ class MainActivity : Activity() {
             }
         }
         addSettingCard(parent, "◉   Futuristic Widgets", "Configure the animated globe or orbital reactor") { renderPage(PAGE_WIDGETS) }
-        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.3.1 · Created by Mirza Qasim") {
+        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.3.2 · Created by Mirza Qasim") {
             renderAbout(parent)
         }
         addSettingCard(parent, "↻   Restart launcher screen", "Reload NEXA without rebooting the TV") {
@@ -1108,10 +1108,17 @@ class MainActivity : Activity() {
             } catch (error: Exception) {
                 mainHandler.post {
                     aiBusy = false
-                    aiStatusMessage = when (error) {
-                        is java.net.SocketTimeoutException -> "The reply took too long. Check your connection and try again."
-                        is java.io.IOException -> "The AI service could not be reached. Check the internet and try again."
-                        else -> error.message?.takeIf { it.isNotBlank() } ?: "BixSigma AI could not reply. Please try again."
+                    val detail = (error.cause?.message ?: error.message).orEmpty().lowercase(Locale.getDefault())
+                    aiStatusMessage = when {
+                        error is java.net.SocketTimeoutException || error.cause is java.net.SocketTimeoutException ->
+                            "The reply took too long. Check your connection and try again."
+                        error is java.io.IOException ->
+                            "The AI service could not be reached. Check the internet and try again."
+                        detail.contains("429") || detail.contains("quota") || detail.contains("rate limit") ->
+                            "The AI usage limit has been reached. Check your API key's limits and try again later."
+                        detail.contains("401") || detail.contains("403") || detail.contains("invalid api key") ->
+                            "Your API key was rejected. Check the key and add it again."
+                        else -> "BixSigma AI could not reply. Please check your connection and try again."
                     }
                     if (currentPage == PAGE_AI) renderPage(PAGE_AI)
                 }
