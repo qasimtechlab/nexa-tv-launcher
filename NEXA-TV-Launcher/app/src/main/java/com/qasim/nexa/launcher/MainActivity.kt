@@ -404,7 +404,7 @@ class MainActivity : Activity() {
             background = cardDrawable(false, true)
             isFocusable = true
             isClickable = true
-            contentDescription = "Movable time and date widget. Drag to reposition or use left and right on the remote."
+            contentDescription = "Movable time and date widget. Use LEFT, RIGHT, UP and DOWN on the remote to position it."
             setOnFocusChangeListener { view, focused -> view.background = cardDrawable(focused, true) }
         }
         val time = TextClock(this).apply {
@@ -424,16 +424,54 @@ class MainActivity : Activity() {
             val art = FuturisticWidgetView(this, widgetStyle).apply {
                 isFocusable = true
                 isClickable = true
-                contentDescription = if (widgetStyle == WIDGET_REACTOR) "Animated orbital reactor widget" else "Animated rotating Earth widget"
+                contentDescription = if (widgetStyle == WIDGET_REACTOR)
+                    "Animated orbital reactor widget. Use all four arrow buttons to move it on Home."
+                else "Animated rotating Earth widget. Use all four arrow buttons to move it on Home."
                 setOnClickListener { renderPage(PAGE_WIDGETS) }
                 setOnFocusChangeListener { view, focused ->
                     view.alpha = if (focused) 1f else 0.9f
+                    view.animate().scaleX(if (focused) 1.07f else 1f)
+                        .scaleY(if (focused) 1.07f else 1f).setDuration(130L).start()
+                }
+                setOnKeyListener { view, keyCode, event ->
+                    if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                    val params = view.layoutParams as FrameLayout.LayoutParams
+                    val maxLeft = (strip.width - view.width).coerceAtLeast(0)
+                    val maxTop = (strip.height - view.height).coerceAtLeast(0)
+                    when (keyCode) {
+                        KeyEvent.KEYCODE_DPAD_LEFT -> params.leftMargin = (params.leftMargin - dp(18)).coerceAtLeast(0)
+                        KeyEvent.KEYCODE_DPAD_RIGHT -> params.leftMargin = (params.leftMargin + dp(18)).coerceAtMost(maxLeft)
+                        KeyEvent.KEYCODE_DPAD_UP -> params.topMargin = (params.topMargin - dp(18)).coerceAtLeast(0)
+                        KeyEvent.KEYCODE_DPAD_DOWN -> params.topMargin = (params.topMargin + dp(18)).coerceAtMost(maxTop)
+                        else -> return@setOnKeyListener false
+                    }
+                    view.layoutParams = params
+                    val density = resources.displayMetrics.density
+                    prefs.edit()
+                        .putInt(KEY_FUTURE_WIDGET_X_DP, (params.leftMargin / density).roundToInt())
+                        .putInt(KEY_FUTURE_WIDGET_Y_DP, (params.topMargin / density).roundToInt())
+                        .apply()
+                    true
                 }
             }
             val artParams = FrameLayout.LayoutParams(dp(126), dp(126)).apply {
-                gravity = if (placement == "center") Gravity.CENTER else Gravity.RIGHT or Gravity.CENTER_VERTICAL
+                gravity = Gravity.TOP or Gravity.LEFT
             }
             strip.addView(art, artParams)
+            art.post {
+                if (art.width > 0 && strip.width > 0) {
+                    val params = art.layoutParams as FrameLayout.LayoutParams
+                    val maxLeft = (strip.width - art.width).coerceAtLeast(0)
+                    val maxTop = (strip.height - art.height).coerceAtLeast(0)
+                    val savedX = prefs.getInt(KEY_FUTURE_WIDGET_X_DP, -1)
+                    val savedY = prefs.getInt(KEY_FUTURE_WIDGET_Y_DP, -1)
+                    val defaultLeft = if (placement == "center") maxLeft / 2 else maxLeft
+                    val defaultTop = maxTop / 2
+                    params.leftMargin = (if (savedX < 0) defaultLeft else dp(savedX)).coerceIn(0, maxLeft)
+                    params.topMargin = (if (savedY < 0) defaultTop else dp(savedY)).coerceIn(0, maxTop)
+                    art.layoutParams = params
+                }
+            }
             futuristicWidgetView = art
         }
 
@@ -501,7 +539,7 @@ class MainActivity : Activity() {
             }
         }
         clock.setOnLongClickListener {
-            toast("Clock widget selected — drag it, or use LEFT/RIGHT on your remote.")
+            toast("Clock selected. Use all four arrow buttons to move it; press OK to center.")
             true
         }
         clock.setOnKeyListener { view, keyCode, event ->
@@ -634,7 +672,7 @@ class MainActivity : Activity() {
         addSettingCard(parent, "◉   Futuristic Widgets settings", "Add an animated rotating Earth or orbital reactor to Home") {
             renderPage(PAGE_WIDGETS)
         }
-        addSettingCard(parent, "⌚   Center the clock widget", "Reset its Home position; you can drag it to any other position") {
+        addSettingCard(parent, "⌚   Center the clock widget", "Reset to center. On Home, focus the clock and use all four remote arrows to move it") {
             prefs.edit()
                 .putInt(KEY_CLOCK_POSITION_DP, -2)
                 .putInt(KEY_CLOCK_POSITION_Y_DP, -2)
@@ -689,13 +727,17 @@ class MainActivity : Activity() {
         val placement = prefs.getString(KEY_FUTURISTIC_POSITION, "side") ?: "side"
         addSettingCard(
             parent,
-            "↔   Widget placement: ${if (placement == "center") "Center" else "Side"}",
-            "Switch the animated widget between the center and right side of Home"
+            "↔   Default widget position: ${if (placement == "center") "Center" else "Right"}",
+            "Choose its starting place. On Home, focus the animation and use all four remote arrows to move it freely."
         ) {
-            prefs.edit().putString(KEY_FUTURISTIC_POSITION, if (placement == "center") "side" else "center").apply()
+            prefs.edit()
+                .putString(KEY_FUTURISTIC_POSITION, if (placement == "center") "side" else "center")
+                .remove(KEY_FUTURE_WIDGET_X_DP)
+                .remove(KEY_FUTURE_WIDGET_Y_DP)
+                .apply()
             renderPage(PAGE_WIDGETS)
         }
-        addSettingCard(parent, "⌚   Center clock widget", "Place the live clock in the middle; drag it on Home to reposition") {
+        addSettingCard(parent, "⌚   Center clock widget", "Reset to center. On Home, focus the clock and use LEFT / RIGHT / UP / DOWN to reposition") {
             prefs.edit()
                 .putInt(KEY_CLOCK_POSITION_DP, -2)
                 .putInt(KEY_CLOCK_POSITION_Y_DP, -2)
@@ -729,7 +771,7 @@ class MainActivity : Activity() {
             }
         }
         addSettingCard(parent, "◉   Futuristic Widgets", "Configure the animated globe or orbital reactor") { renderPage(PAGE_WIDGETS) }
-        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.2.1 · Created by Mirza Qasim") {
+        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.3.1 · Created by Mirza Qasim") {
             renderAbout(parent)
         }
         addSettingCard(parent, "↻   Restart launcher screen", "Reload NEXA without rebooting the TV") {
@@ -1972,6 +2014,8 @@ String): TextView = textView(title, 21, textLight, true).apply {
         private const val KEY_CLOCK_POSITION_Y_DP = "clock_position_y_dp"
         private const val KEY_FUTURE_WIDGET = "future_widget_style"
         private const val KEY_FUTURISTIC_POSITION = "futuristic_widget_position"
+        private const val KEY_FUTURE_WIDGET_X_DP = "future_widget_x_dp"
+        private const val KEY_FUTURE_WIDGET_Y_DP = "future_widget_y_dp"
         private const val WIDGET_OFF = "off"
         private const val WIDGET_GLOBE = "globe"
         private const val WIDGET_REACTOR = "reactor"
