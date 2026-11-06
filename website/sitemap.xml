@@ -1,4 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://nexa-tv-launcher.vercel.app/</loc><lastmod>2026-11-05</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://nexa-tv-launcher.vercel.app/</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://nexa-tv-launcher.vercel.app/screenshots/Create_modern_launcher_screensho%E2%80%A6_568319f5.jpg</image:loc>
+      <image:title>NEXA TV Launcher Android TV home screen</image:title>
+      <image:caption>Android TV home screen and remote-first interface</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://nexa-tv-launcher.vercel.app/screenshots/Creating_Android_TV_launcher_scr%E2%80%A6_c2c772bf.jpg</image:loc>
+      <image:title>NEXA TV Launcher customization and wallpapers</image:title>
+      <image:caption>TV launcher wallpaper and appearance customization</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://nexa-tv-launcher.vercel.app/screenshots/Smart_TV_launcher_displaying_UI_c32512a7.jpg</image:loc>
+      <image:title>BixSigma AI in NEXA TV Launcher</image:title>
+      <image:caption>BixSigma AI assistant interface on Android TV</image:caption>
+    </image:image>
+  </url>
 </urlset>
