@@ -101,6 +101,7 @@ class MainActivity : Activity() {
     private var textToSpeechReady = false
     private var movingAppPackage: String? = null
     private var focusAppAfterRender: String? = null
+    private var originalAppOrderBeforeMove: List<String>? = null
     private var appGridColumns = 4
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -187,16 +188,6 @@ class MainActivity : Activity() {
         }
     }
 
-    @Suppress("DEPRECATION")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_ASSISTANT_ROLE) {
-            toast(if (resultCode == Activity.RESULT_OK) "BixSigma AI is selected as the assistant where supported."
-                else "Assistant selection was not changed.")
-            if (currentPage == PAGE_AI) renderPage(PAGE_AI)
-        }
-    }
-
     private fun applyImmersiveMode() {
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility = (
@@ -212,6 +203,11 @@ class MainActivity : Activity() {
     override fun onBackPressed() {
         if (movingAppPackage != null) {
             val selected = movingAppPackage
+            val originalOrder = originalAppOrderBeforeMove
+            if (!originalOrder.isNullOrEmpty()) {
+                prefs.edit().putString(KEY_APP_ORDER, originalOrder.joinToString("|")).apply()
+            }
+            originalAppOrderBeforeMove = null
             movingAppPackage = null
             focusAppAfterRender = selected
             renderPage(PAGE_APPS)
@@ -1481,6 +1477,7 @@ class MainActivity : Activity() {
     }
 
     private fun beginAppMove(app: LaunchableApp) {
+        originalAppOrderBeforeMove = getLaunchableApps().map { it.packageName }
         movingAppPackage = app.packageName; focusAppAfterRender = app.packageName
         renderPage(PAGE_APPS)
         toast("Move mode: use LEFT, RIGHT, UP and DOWN. Press OK to finish.")
@@ -1505,8 +1502,12 @@ class MainActivity : Activity() {
     }
 
     private fun finishAppMove() {
-        val selected = movingAppPackage; movingAppPackage = null
-        focusAppAfterRender = selected; renderPage(PAGE_APPS); toast("App position saved.")
+        val selected = movingAppPackage
+        movingAppPackage = null
+        originalAppOrderBeforeMove = null
+        focusAppAfterRender = selected
+        renderPage(PAGE_APPS)
+        toast("App position saved.")
     }
 
     private fun showAppOptions(app: LaunchableApp) {
@@ -1692,6 +1693,12 @@ class MainActivity : Activity() {
     @Deprecated("Legacy result API retained for Android 5.0+ compatibility")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_ASSISTANT_ROLE) {
+            toast(if (resultCode == Activity.RESULT_OK) "BixSigma AI is selected as the assistant where supported."
+                else "Assistant selection was not changed.")
+            if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+            return
+        }
         if (requestCode == pickerRequest && resultCode == RESULT_OK) {
             val uri = data?.data ?: return
             try {
