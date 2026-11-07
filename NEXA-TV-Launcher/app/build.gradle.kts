@@ -11,8 +11,8 @@ android {
         applicationId = "com.qasim.nexa.launcher"
         minSdk = 21
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.3.3"
+        versionCode = 10
+        versionName = "1.3.4"
     }
 
     compileOptions {
