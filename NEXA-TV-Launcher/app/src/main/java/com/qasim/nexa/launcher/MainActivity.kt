@@ -1368,9 +1368,13 @@ class MainActivity : Activity() {
                 parent.addView(infoCard("No public uploads were found in this category right now. You can still browse its channels directly on YouTube."))
                 parent.addView(navButton("▶   Browse this category on YouTube", false) { openYouTubeSearch("Pakistani Indian Hindi Urdu $topic YouTube channels latest videos") })
             } else {
+                val source = youtubeFeedSourceForTopic[topic]
+                if (!source.isNullOrBlank() && source != topic) {
+                    parent.addView(textView("Showing active uploads from $source because this category had no recent feed.", 12, textMuted))
+                }
                 addYoutubeVideoCards(parent, cached, topic)
             }
-            addSettingCard(parent, "↻   Refresh videos", "Fetch the latest public uploads from ${channels.size} channels") {
+            addSettingCard(parent, "↻   Refresh videos", "Check this category and alternate active public feeds") {
                 youtubeVideoCache.remove(topic)
                 youtubeErrors.remove(topic)
                 renderPage(targetPage)
@@ -1389,30 +1393,43 @@ class MainActivity : Activity() {
             return
         }
 
-        parent.addView(textView("Checking public uploads from ${channels.size} channel sources…", 14, textMuted).apply {
+        parent.addView(textView("Checking active public uploads from ${channels.size} channel sources…", 14, textMuted).apply {
             setPadding(0, dp(12), 0, dp(18))
         })
-        parent.addView(navButton("▶   Browse this category on YouTube", false) { openYouTubeSearch("Pakistani Indian Hindi Urdu $topic YouTube channels latest videos") })
+        parent.addView(navButton("▶   Browse this category on YouTube", false) {
+            openYouTubeSearch("Pakistani Indian Hindi Urdu $topic YouTube channels latest videos")
+        })
         if (youtubeFetchInProgress.add(topic)) {
             youtubeExecutor.execute {
-                try {
-                    val videos = YoutubeFeed.fetchVideos(channels, maxResults)
-                    mainHandler.post {
+                var videos: List<YoutubeVideo> = emptyList()
+                var foundCategory = topic
+                var lastError = ""
+                // An inactive selected category should not leave Home with an empty video rail.
+                val fallbacks = (listOf(topic) + youtubeInterests().filter { it != topic }).distinct().take(4)
+                for (candidate in fallbacks) {
+                    try {
+                        videos = YoutubeFeed.fetchVideos(YoutubeChannelCatalog.channelsFor(candidate), maxResults)
+                        if (videos.isNotEmpty()) {
+                            foundCategory = candidate
+                            break
+                        }
+                    } catch (error: Exception) {
+                        lastError = error.message.orEmpty()
+                    }
+                }
+                mainHandler.post {
+                    if (videos.isNotEmpty()) {
                         youtubeVideoCache[topic] = videos
-                        prefs.edit().putString(KEY_YOUTUBE_CHANNEL_ID_CACHE, JSONObject(YoutubeFeed.channelIdCache()).toString()).apply()
+                        youtubeFeedSourceForTopic[topic] = foundCategory
                         youtubeErrors.remove(topic)
-                        youtubeFetchInProgress.remove(topic)
-                        if (currentPage == targetPage) renderPage(targetPage)
+                    } else {
+                        youtubeErrors[topic] = lastError.ifBlank {
+                            "No active public uploads were returned by the checked channels. Try another category or browse YouTube directly."
+                        }
                     }
-                } catch (error: Exception) {
-                    val message = error.message?.takeIf { it.isNotBlank() }
-                        ?: "Could not load YouTube uploads. Check the internet connection and try again."
-                    mainHandler.post {
-                        youtubeErrors[topic] = message
-                        prefs.edit().putString(KEY_YOUTUBE_CHANNEL_ID_CACHE, JSONObject(YoutubeFeed.channelIdCache()).toString()).apply()
-                        youtubeFetchInProgress.remove(topic)
-                        if (currentPage == targetPage) renderPage(targetPage)
-                    }
+                    prefs.edit().putString(KEY_YOUTUBE_CHANNEL_ID_CACHE, JSONObject(YoutubeFeed.channelIdCache()).toString()).apply()
+                    youtubeFetchInProgress.remove(topic)
+                    if (currentPage == targetPage) renderPage(targetPage)
                 }
             }
         }
