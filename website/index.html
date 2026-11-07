@@ -353,10 +353,23 @@
   <script>
     (function(){
       document.getElementById('year').textContent=String(new Date().getFullYear());
+      function compareVersions(a,b){
+        var left=String(a||'0').split('.').map(function(n){return parseInt(n,10)||0;});
+        var right=String(b||'0').split('.').map(function(n){return parseInt(n,10)||0;});
+        for(var i=0;i<Math.max(left.length,right.length);i++){
+          var delta=(left[i]||0)-(right[i]||0);
+          if(delta!==0)return delta;
+        }
+        return 0;
+      }
       fetch('/release.json',{cache:'no-store'})
         .then(function(r){if(!r.ok)throw new Error('Release metadata unavailable');return r.json();})
         .then(function(release){
           if(!release||!release.version)return;
+          var currentVersion=document.querySelector('[data-release-version]');
+          var bakedVersion=currentVersion?currentVersion.textContent.trim():'0';
+          // A briefly cached older JSON response must never downgrade the deployed page.
+          if(compareVersions(release.version,bakedVersion)<0)return;
           document.querySelectorAll('[data-release-version]').forEach(function(el){el.textContent=release.version;});
         })
         .catch(function(){});
