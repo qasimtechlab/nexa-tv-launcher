@@ -286,7 +286,25 @@ internal object GeminiApi {
                 )
             }
 
-            val audioData = response.optJSONObject("output_audio")?.optString("data").orEmpty()
+            // SDKs expose output_audio as a convenience property, but the REST
+            // response stores audio in steps[].content[] as a model_output audio part.
+            var audioData = response.optJSONObject("output_audio")?.optString("data").orEmpty()
+            if (audioData.isBlank()) {
+                val steps = response.optJSONArray("steps") ?: JSONArray()
+                for (stepIndex in 0 until steps.length()) {
+                    val step = steps.optJSONObject(stepIndex) ?: continue
+                    if (step.optString("type") != "model_output") continue
+                    val content = step.optJSONArray("content") ?: continue
+                    for (partIndex in 0 until content.length()) {
+                        val part = content.optJSONObject(partIndex) ?: continue
+                        if (part.optString("type") == "audio") {
+                            audioData = part.optString("data")
+                            if (audioData.isNotBlank()) break
+                        }
+                    }
+                    if (audioData.isNotBlank()) break
+                }
+            }
             if (audioData.isBlank()) {
                 throw IOException("Gemini returned no audio. Check TTS model access and try again.")
             }
