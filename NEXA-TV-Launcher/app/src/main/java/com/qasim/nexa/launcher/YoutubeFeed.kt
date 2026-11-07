@@ -44,7 +44,7 @@ internal object YoutubeFeed {
     fun channelIdCache(): Map<String, String> = HashMap(resolvedIds)
 
     fun fetchVideos(channels: List<YoutubeChannel>, maxResults: Int = 8): List<YoutubeVideo> {
-        val sources = channels.distinctBy { it.channelId }.take(MAX_CHANNELS_PER_CATEGORY)
+        val sources = channels.distinctBy { it.name.trim().lowercase() }.take(MAX_CHANNELS_PER_CATEGORY)
         if (sources.isEmpty()) throw IOException("No channel sources are configured for this category.")
 
         val pool = Executors.newFixedThreadPool(sources.size.coerceAtMost(6))
@@ -134,7 +134,11 @@ internal object YoutubeFeed {
             val status = connection.responseCode
             if (status !in 200..299) throw IOException("Could not resolve $handle (HTTP $status).")
             val html = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-            val id = handleRegex.find(html)?.value
+            val identityId = Regex("""\"(?:externalId|channelId)\"\s*:\s*\"(UC[A-Za-z0-9_-]{22})\"""")
+                .find(html)?.groupValues?.get(1)
+            val canonicalId = Regex("""/channel/(UC[A-Za-z0-9_-]{22})""")
+                .find(html)?.groupValues?.get(1)
+            val id = identityId ?: canonicalId
                 ?: throw IOException("YouTube did not return a channel ID for $handle.")
             resolvedIds[cacheKey] = id
             return id
