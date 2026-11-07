@@ -60,6 +60,8 @@ jobs:
             echo "APK is unchanged; no repository commit needed."
           else
             git commit -m "build: publish NEXA TV Launcher v${VERSION} debug APK"
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
             git push origin HEAD:${GITHUB_REF_NAME}
           fi
       - name: Upload debug APK
