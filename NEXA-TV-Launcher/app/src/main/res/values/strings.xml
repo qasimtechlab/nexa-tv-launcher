@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">NEXA TV Launcher</string>
+    <string name="accessibility_home_service_label">NEXA Home Button</string>
+    <string name="accessibility_home_service_description">Optional service that handles the TV remote HOME key and detects the Home launcher window so NEXA can open. It does not read screen text or content. Processing stays on this device.</string>
 </resources>
