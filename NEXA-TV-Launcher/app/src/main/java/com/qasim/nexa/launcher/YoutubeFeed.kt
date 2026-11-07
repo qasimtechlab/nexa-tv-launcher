@@ -9,6 +9,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Callable
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 internal data class YoutubeVideo(
@@ -20,19 +21,36 @@ internal data class YoutubeVideo(
 )
 
 /**
- * API-key-free reader for YouTube's public Atom channel upload feeds.
- * This intentionally reads only channel feeds; it does not scrape YouTube pages
- * or pretend to reproduce YouTube's private personalized recommendation system.
+ * Reads public YouTube Atom upload feeds without an API key.
+ *
+ * The app keeps a larger handle-based catalogue, resolves handles to stable
+ * channel IDs on demand, caches those IDs, and skips channels whose public
+ * feed is unavailable. It deliberately limits requests per category so the
+ * TV is not flooded with hundreds of simultaneous network requests.
  */
 internal object YoutubeFeed {
-    fun fetchVideos(channels: List<YoutubeChannel>, maxResults: Int = 8): List<YoutubeVideo> {
-        val sources = channels.distinctBy { it.channelId }
-        if (sources.isEmpty()) return emptyList()
+    private const val MAX_CHANNELS_PER_CATEGORY = 18
+    private val resolvedIds = ConcurrentHashMap<String, String>()
+    private val handleRegex = Regex("""UC[A-Za-z0-9_-]{20,}""")
 
-        val pool = Executors.newFixedThreadPool(sources.size.coerceAtMost(4))
+    fun restoreChannelIdCache(cache: Map<String, String>) {
+        cache.forEach { (handle, id) ->
+            if (handle.startsWith("@") && handleRegex.containsMatchIn(id)) {
+                resolvedIds[handle.lowercase()] = handleRegex.find(id)!!.value
+            }
+        }
+    }
+
+    fun channelIdCache(): Map<String, String> = HashMap(resolvedIds)
+
+    fun fetchVideos(channels: List<YoutubeChannel>, maxResults: Int = 8): List<YoutubeVideo> {
+        val sources = channels.distinctBy { it.channelId }.take(MAX_CHANNELS_PER_CATEGORY)
+        if (sources.isEmpty()) throw IOException("No channel sources are configured for this category.")
+
+        val pool = Executors.newFixedThreadPool(sources.size.coerceAtMost(6))
         return try {
             val tasks = sources.map { source -> Callable { fetchChannel(source) } }
-            pool.invokeAll(tasks)
+            val videos = pool.invokeAll(tasks)
                 .flatMap { future ->
                     try {
                         future.get()
@@ -43,21 +61,33 @@ internal object YoutubeFeed {
                 .distinctBy { it.videoId }
                 .sortedByDescending { it.publishedAt }
                 .take(maxResults.coerceAtLeast(1))
+
+            if (videos.isEmpty()) {
+                throw IOException(
+                    "No public uploads could be loaded from this category right now. " +
+                        "Try again later or browse the category directly on YouTube."
+                )
+            }
+            videos
         } finally {
             pool.shutdownNow()
         }
     }
 
     private fun fetchChannel(channel: YoutubeChannel): List<YoutubeVideo> {
-        val url = URL(
-            "https://www.youtube.com/feeds/videos.xml?channel_id=${channel.channelId}"
-        )
+        val channelId = if (channel.channelId.startsWith("@")) {
+            resolveChannelId(channel.channelId)
+        } else {
+            channel.channelId
+        }
+        val url = URL("https://www.youtube.com/feeds/videos.xml?channel_id=$channelId")
         val connection = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
-            connectTimeout = 9_000
-            readTimeout = 12_000
+            connectTimeout = 7_000
+            readTimeout = 9_000
+            instanceFollowRedirects = true
             setRequestProperty("Accept", "application/atom+xml, application/xml, text/xml")
-            setRequestProperty("User-Agent", "NEXA-TV-Launcher/1.2.1")
+            setRequestProperty("User-Agent", "NEXA-TV-Launcher/1.3.3")
         }
 
         try {
@@ -69,6 +99,45 @@ internal object YoutubeFeed {
                 parser.setInput(InputStreamReader(stream, Charsets.UTF_8))
                 return parseEntries(parser, channel.name)
             }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /**
+     * YouTube's public channel page contains its canonical UC... channel ID.
+     * Only the resolved ID is cached; feeds themselves continue to come from
+     * YouTube's public Atom endpoint.
+     */
+    private fun resolveChannelId(handle: String): String {
+        val cacheKey = handle.lowercase()
+        resolvedIds[cacheKey]?.let { return it }
+
+        val normalizedHandle = handle.trim().removePrefix("@")
+        if (normalizedHandle.isBlank()) throw IOException("Invalid YouTube channel handle.")
+        val url = URL("https://www.youtube.com/@$normalizedHandle")
+        val connection = (url.openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 7_000
+            readTimeout = 10_000
+            instanceFollowRedirects = true
+            setRequestProperty("Accept", "text/html,application/xhtml+xml")
+            setRequestProperty("Accept-Language", "en-US,en;q=0.8")
+            setRequestProperty(
+                "User-Agent",
+                "Mozilla/5.0 (Linux; Android 11; Android TV) AppleWebKit/537.36 " +
+                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+        }
+
+        try {
+            val status = connection.responseCode
+            if (status !in 200..299) throw IOException("Could not resolve $handle (HTTP $status).")
+            val html = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            val id = handleRegex.find(html)?.value
+                ?: throw IOException("YouTube did not return a channel ID for $handle.")
+            resolvedIds[cacheKey] = id
+            return id
         } finally {
             connection.disconnect()
         }
@@ -135,9 +204,10 @@ internal object YoutubeFeed {
         if (imageUrl.isBlank()) return null
         val connection = (URL(imageUrl).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
-            connectTimeout = 10_000
-            readTimeout = 12_000
+            connectTimeout = 8_000
+            readTimeout = 10_000
             setRequestProperty("Accept", "image/*")
+            setRequestProperty("User-Agent", "NEXA-TV-Launcher/1.3.3")
         }
         try {
             if (connection.responseCode !in 200..299) return null
