@@ -796,11 +796,14 @@ class MainActivity : Activity() {
             renderPage(PAGE_APPS)
             toast("Application list refreshed")
         }
-        addSettingCard(parent, "⌂   Set as default Home app", "Open Android TV's Home-app selection screen") {
+        addSettingCard(parent, "⌂   Set as default Home app", "Use Android's normal Home-app selector where supported") {
             openDefaultHomeSettings()
         }
+        addSettingCard(parent, "⌂   NEXA Home Button (Accessibility)", "Enable NEXA in Accessibility to catch the TV remote's HOME button") {
+            openHomeButtonAccessibilitySettings()
+        }
         addSettingCard(parent, "◉   Futuristic Widgets", "Configure the animated globe or orbital reactor") { renderPage(PAGE_WIDGETS) }
-        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.3.4 · Created by Mirza Qasim") {
+        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.3.6 · Created by Mirza Qasim") {
             renderAbout(parent)
         }
         addSettingCard(parent, "↻   Restart launcher screen", "Reload NEXA without rebooting the TV") {
@@ -853,6 +856,32 @@ class MainActivity : Activity() {
                     "Choose NEXA TV Launcher as the Home app. Some TV brands block third-party launchers."
             )
             .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun openHomeButtonAccessibilitySettings() {
+        AlertDialog.Builder(this)
+            .setTitle("Enable NEXA Home Button")
+            .setMessage(
+                "Turn on NEXA Home Button in Android TV Accessibility settings. " +
+                    "It only handles the remote's HOME key and detects when the TV's Home screen opens. " +
+                    "It does not read screen text or content. You can switch it off any time."
+            )
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Open Accessibility Settings") { _, _ ->
+                try {
+                    startActivity(
+                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                } catch (_: Exception) {
+                    try {
+                        startActivity(Intent(Settings.ACTION_SETTINGS))
+                    } catch (_: Exception) {
+                        toast("Open TV Settings → Accessibility → NEXA Home Button.")
+                    }
+                }
+            }
             .show()
     }
 
@@ -1725,7 +1754,7 @@ class MainActivity : Activity() {
     }
 
     private fun renderAbout(parent: LinearLayout) {
-        parent.addView(infoCard("NEXA Smart TV Launcher\nVersion 1.3.4\nCreated by Mirza Qasim\nFaisalabad, Pakistan\n\nBuilt as an independent Android TV home experience."))
+        parent.addView(infoCard("NEXA Smart TV Launcher\nVersion 1.3.6\nCreated by Mirza Qasim\nFaisalabad, Pakistan\n\nBuilt as an independent Android TV home experience."))
     }
 
     private fun addSettingCard(parent: LinearLayout, title: String, subtitle: String, action: () -> Unit) {
