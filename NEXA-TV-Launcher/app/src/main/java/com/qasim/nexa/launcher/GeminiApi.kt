@@ -201,6 +201,105 @@ internal object GeminiApi {
         }
     }
 
+
+    /**
+     * Generate human-like spoken audio with Gemini 3.8 TTS.
+     * Uses the same personal API key the user saved for BixSigma AI chat.
+     * The unary Interactions response is a complete WAV file (base64).
+     */
+    fun generateSpeech(apiKey: String, text: String): ByteArray {
+        require(apiKey.isNotBlank()) { "Add your personal Gemini API key first." }
+        require(text.isNotBlank()) { "There is no reply text to speak." }
+
+        val promptText = text.take(6000)
+        val body = JSONObject()
+            .put("model", "gemini-3.8-flash-tts")
+            .put(
+                "input",
+                JSONArray().put(
+                    JSONObject()
+                        .put("type", "user_input")
+                        .put(
+                            "content",
+                            JSONArray().put(
+                                JSONObject()
+                                    .put("type", "text")
+                                    .put("text", promptText)
+                                    .put(
+                                        "annotations",
+                                        JSONArray().put(
+                                            JSONObject()
+                                                .put("type", "speech_metadata")
+                                                .put(
+                                                    "style",
+                                                    "Natural, warm, friendly South Asian conversational delivery. " +
+                                                        "Use clear Urdu or Hindi pronunciation matching the text, " +
+                                                        "human pacing, gentle pauses and expressive intonation. " +
+                                                        "Do not sound robotic. Read the supplied words exactly."
+                                                )
+                                        )
+                                    )
+                            )
+                        )
+                )
+            )
+            .put("response_format", JSONObject().put("type", "audio"))
+            .put(
+                "generation_config",
+                JSONObject().put(
+                    "speech_config",
+                    JSONArray().put(JSONObject().put("voice", "Kore"))
+                )
+            )
+
+        val connection = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 10_000
+            readTimeout = 60_000
+            doOutput = true
+            setRequestProperty("x-goog-api-key", apiKey.trim())
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            setRequestProperty("Accept", "application/json")
+        }
+
+        try {
+            connection.outputStream.use { output ->
+                output.write(body.toString().toByteArray(Charsets.UTF_8))
+            }
+            val status = connection.responseCode
+            val responseText = (if (status in 200..299) connection.inputStream else connection.errorStream)
+                ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            val response = try { JSONObject(responseText) } catch (_: Exception) { JSONObject() }
+
+            if (status !in 200..299) {
+                val error = response.optJSONObject("error")
+                val detail = error?.optString("message")?.takeIf { it.isNotBlank() }
+                throw IOException(
+                    detail ?: when (status) {
+                        400 -> "Gemini could not process the voice request."
+                        401, 403 -> "The saved API key does not have access to Gemini speech generation."
+                        404 -> "Gemini speech generation is not available for this API project yet."
+                        429 -> "The Gemini voice usage limit has been reached. Try again later."
+                        503 -> "Gemini voice is temporarily busy. Try again shortly."
+                        else -> "Gemini voice request failed (HTTP $status)."
+                    }
+                )
+            }
+
+            val audioData = response.optJSONObject("output_audio")?.optString("data").orEmpty()
+            if (audioData.isBlank()) {
+                throw IOException("Gemini returned no audio. Check TTS model access and try again.")
+            }
+            return try {
+                android.util.Base64.decode(audioData, android.util.Base64.DEFAULT)
+            } catch (error: Exception) {
+                throw IOException("Gemini returned audio in an unsupported format.", error)
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     private fun extractText(response: JSONObject): String {
         response.optString("output_text").takeIf { it.isNotBlank() }?.let { return it }
 
