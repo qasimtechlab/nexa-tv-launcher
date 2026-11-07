@@ -796,12 +796,8 @@ class MainActivity : Activity() {
             renderPage(PAGE_APPS)
             toast("Application list refreshed")
         }
-        addSettingCard(parent, "⌂   Default Home app", "Open Android Home app settings") {
-            try {
-                startActivity(Intent("android.settings.HOME_SETTINGS"))
-            } catch (_: Exception) {
-                toast("Open Android Settings and choose Default Apps → Home app")
-            }
+        addSettingCard(parent, "⌂   Set as default Home app", "Open Android TV's Home-app selection screen") {
+            openDefaultHomeSettings()
         }
         addSettingCard(parent, "◉   Futuristic Widgets", "Configure the animated globe or orbital reactor") { renderPage(PAGE_WIDGETS) }
         addSettingCard(parent, "ⓘ   About NEXA", "Version 1.3.4 · Created by Mirza Qasim") {
@@ -810,6 +806,54 @@ class MainActivity : Activity() {
         addSettingCard(parent, "↻   Restart launcher screen", "Reload NEXA without rebooting the TV") {
             renderPage(PAGE_HOME)
         }
+    }
+
+    private fun openDefaultHomeSettings() {
+        // Android 10+ provides a dedicated system role prompt for the Home app.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val manager = getSystemService(RoleManager::class.java)
+                if (manager != null && manager.isRoleAvailable(RoleManager.ROLE_HOME)) {
+                    if (manager.isRoleHeld(RoleManager.ROLE_HOME)) {
+                        toast("NEXA is already selected as the default Home app.")
+                    } else {
+                        startActivityForResult(
+                            manager.createRequestRoleIntent(RoleManager.ROLE_HOME),
+                            REQUEST_HOME_ROLE
+                        )
+                    }
+                    return
+                }
+            } catch (_: Exception) {
+                // Some Android TV builds do not expose the Home role prompt.
+            }
+        }
+
+        // TV manufacturers expose different settings screens. Try the most
+        // specific Home/Default Apps pages, then fall back to the Settings root.
+        val actions = listOf(
+            "android.settings.HOME_SETTINGS",
+            "android.settings.MANAGE_DEFAULT_APPS_SETTINGS",
+            Settings.ACTION_SETTINGS
+        )
+        for (action in actions) {
+            try {
+                startActivity(Intent(action))
+                toast("In TV Settings, choose Apps or Default apps → Home app → NEXA TV Launcher.")
+                return
+            } catch (_: Exception) {
+                // Continue to the next settings entry point.
+            }
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Choose NEXA as Home")
+            .setMessage(
+                "Open your TV Settings and look for Apps, Default apps, or Home screen. " +
+                    "Choose NEXA TV Launcher as the Home app. Some TV brands block third-party launchers."
+            )
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     private fun showYouTubeRecommendationsDialog() {
@@ -1981,6 +2025,11 @@ class MainActivity : Activity() {
             if (currentPage == PAGE_AI) renderPage(PAGE_AI)
             return
         }
+        if (requestCode == REQUEST_HOME_ROLE) {
+            toast(if (resultCode == Activity.RESULT_OK) "NEXA is now selected as the default Home app."
+                else "Home app selection was not changed.")
+            return
+        }
         if (requestCode == pickerRequest && resultCode == RESULT_OK) {
             val uri = data?.data ?: return
             try {
@@ -2229,6 +2278,7 @@ class MainActivity : Activity() {
         internal const val EXTRA_START_AI_VOICE = "com.qasim.nexa.launcher.START_AI_VOICE"
         private const val REQUEST_MIC_PERMISSION = 7201
         private const val REQUEST_ASSISTANT_ROLE = 7202
+        private const val REQUEST_HOME_ROLE = 7203
         private const val MOVE_LEFT = -1
         private const val MOVE_RIGHT = 1
         private const val MOVE_UP = -2
