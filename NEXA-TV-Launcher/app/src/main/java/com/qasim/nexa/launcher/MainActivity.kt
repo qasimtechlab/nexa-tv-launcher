@@ -103,6 +103,9 @@ class MainActivity : Activity() {
     private var focusAppAfterRender: String? = null
     private var originalAppOrderBeforeMove: List<String>? = null
     private var appGridColumns = 4
+    private var movingHomeWidgetId: String? = null
+    private var movingHomeWidgetView: View? = null
+    private var originalHomeWidgetPosition: Pair<Int, Int>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -113,6 +116,19 @@ class MainActivity : Activity() {
             savedYoutubeTopics.split("|").none { it.trim() in supportedYoutubeTopics }
         ) {
             prefs.edit().putString(KEY_YOUTUBE_INTERESTS, DEFAULT_YOUTUBE_INTERESTS).apply()
+        }
+        // Restore cached YouTube handle lookups from the previous session.
+        try {
+            val cache = JSONObject(prefs.getString(KEY_YOUTUBE_CHANNEL_ID_CACHE, "{}") ?: "{}")
+            val restored = mutableMapOf<String, String>()
+            val keys = cache.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                restored[key] = cache.optString(key)
+            }
+            YoutubeFeed.restoreChannelIdCache(restored)
+        } catch (_: Exception) {
+            // A corrupt optional cache is rebuilt as handles are resolved again.
         }
         // Remove the legacy YouTube Data API key from earlier versions; the new feed needs no key.
         prefs.edit().remove("youtube_data_api_key").apply()
@@ -201,6 +217,11 @@ class MainActivity : Activity() {
     }
 
     override fun onBackPressed() {
+        if (movingHomeWidgetId != null) {
+            finishHomeWidgetMove(save = false, showMessage = false)
+            toast("Widget movement cancelled.")
+            return
+        }
         if (movingAppPackage != null) {
             val selected = movingAppPackage
             val originalOrder = originalAppOrderBeforeMove
@@ -232,6 +253,9 @@ class MainActivity : Activity() {
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
+            isFocusable = false
+            isFocusableInTouchMode = false
+            smoothScrollingEnabled = true
             clipToPadding = false
             setPadding(dp(42), dp(24), dp(42), dp(38))
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -336,44 +360,8 @@ class MainActivity : Activity() {
 
     private fun buildHome(parent: LinearLayout) {
         buildHomeWidgetStrip(parent)
-        val cleanHome = prefs.getBoolean(KEY_CLEAN_HOME, false)
-
-        if (!cleanHome) {
-            val hero = glassCard(true).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(30), dp(22), dp(30), dp(22))
-            }
-            hero.addView(textView("YOUR TV. YOUR WORLD.", 12, accent, true))
-            hero.addView(textView("Everything, beautifully\nin one place.", 29, textLight, true).apply {
-                setPadding(0, dp(7), 0, dp(7))
-            })
-            hero.addView(textView("A clean, customizable home for your entertainment.", 14, textMuted))
-            parent.addView(hero, LinearLayout.LayoutParams(-1, dp(166)).apply { bottomMargin = dp(18) })
-
-            parent.addView(sectionTitle("Explore NEXA"))
-            val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            val cards = listOf(
-                Triple("▦", "Applications", "Open your installed apps"),
-                Triple("✦", "Personalize", "Wallpaper, themes and colors"),
-                Triple("◇", "BixSigma AI", "Your optional AI space"),
-                Triple("⚙", "Settings", "Manage your launcher")
-            )
-            cards.forEachIndexed { index, item ->
-                val destination = listOf(PAGE_APPS, PAGE_CUSTOMIZE, PAGE_AI, PAGE_SETTINGS)[index]
-                actions.addView(actionCard(item.first, item.second, item.third) {
-                    renderPage(destination)
-                }, LinearLayout.LayoutParams(dp(220), dp(126)).apply { rightMargin = dp(12) })
-            }
-            val actionScroll = HorizontalScrollView(this).apply {
-                isHorizontalScrollBarEnabled = false
-                overScrollMode = View.OVER_SCROLL_NEVER
-            }
-            actionScroll.addView(actions)
-            parent.addView(actionScroll, LinearLayout.LayoutParams(-1, dp(138)).apply { bottomMargin = dp(16) })
-        }
-
-        parent.addView(sectionTitle("Your favorites"))
+        // Start directly with widgets and useful home-screen content.
+        parent.addView(homeSectionTitle("Your favorites"))
         val favorites = getLaunchableApps().filter { isFavoritePackage(it.packageName) }
         if (favorites.isEmpty()) {
             parent.addView(infoCard("Your Home screen only shows apps you mark as favorites. Open Apps, highlight an app and hold OK on the remote to add it here."))
@@ -427,32 +415,17 @@ class MainActivity : Activity() {
                 contentDescription = if (widgetStyle == WIDGET_REACTOR)
                     "Animated orbital reactor widget. Use all four arrow buttons to move it on Home."
                 else "Animated rotating Earth widget. Use all four arrow buttons to move it on Home."
-                setOnClickListener { renderPage(PAGE_WIDGETS) }
+                setOnClickListener { if (movingHomeWidgetId == null) renderPage(PAGE_WIDGETS) }
+                setOnLongClickListener {
+                    beginHomeWidgetMove("art", this)
+                    true
+                }
                 setOnFocusChangeListener { view, focused ->
                     view.alpha = if (focused) 1f else 0.9f
                     view.animate().scaleX(if (focused) 1.07f else 1f)
                         .scaleY(if (focused) 1.07f else 1f).setDuration(130L).start()
                 }
-                setOnKeyListener { view, keyCode, event ->
-                    if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
-                    val params = view.layoutParams as FrameLayout.LayoutParams
-                    val maxLeft = (strip.width - view.width).coerceAtLeast(0)
-                    val maxTop = (strip.height - view.height).coerceAtLeast(0)
-                    when (keyCode) {
-                        KeyEvent.KEYCODE_DPAD_LEFT -> params.leftMargin = (params.leftMargin - dp(18)).coerceAtLeast(0)
-                        KeyEvent.KEYCODE_DPAD_RIGHT -> params.leftMargin = (params.leftMargin + dp(18)).coerceAtMost(maxLeft)
-                        KeyEvent.KEYCODE_DPAD_UP -> params.topMargin = (params.topMargin - dp(18)).coerceAtLeast(0)
-                        KeyEvent.KEYCODE_DPAD_DOWN -> params.topMargin = (params.topMargin + dp(18)).coerceAtMost(maxTop)
-                        else -> return@setOnKeyListener false
-                    }
-                    view.layoutParams = params
-                    val density = resources.displayMetrics.density
-                    prefs.edit()
-                        .putInt(KEY_FUTURE_WIDGET_X_DP, (params.leftMargin / density).roundToInt())
-                        .putInt(KEY_FUTURE_WIDGET_Y_DP, (params.topMargin / density).roundToInt())
-                        .apply()
-                    true
-                }
+                setOnKeyListener { view, keyCode, event -> handleHomeWidgetKey("art", view, keyCode, event) }
             }
             val artParams = FrameLayout.LayoutParams(dp(126), dp(126)).apply {
                 gravity = Gravity.TOP or Gravity.LEFT
@@ -504,83 +477,99 @@ class MainActivity : Activity() {
             }
         }
 
-        var dragStartX = 0f
-        var dragStartY = 0f
-        var startLeft = 0
-        var startTop = 0
-        clock.setOnTouchListener { view, event ->
-            val params = view.layoutParams as FrameLayout.LayoutParams
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    dragStartX = event.rawX
-                    dragStartY = event.rawY
-                    startLeft = params.leftMargin
-                    startTop = params.topMargin
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val reserved = if (widgetStyle != WIDGET_OFF && placement == "side") dp(142) else dp(12)
-                    val maxLeft = (strip.width - view.width - reserved).coerceAtLeast(0)
-                    val maxTop = (strip.height - view.height).coerceAtLeast(0)
-                    params.leftMargin = (startLeft + (event.rawX - dragStartX).toInt()).coerceIn(0, maxLeft)
-                    params.topMargin = (startTop + (event.rawY - dragStartY).toInt()).coerceIn(0, maxTop)
-                    view.layoutParams = params
-                    true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    val density = resources.displayMetrics.density
-                    prefs.edit()
-                        .putInt(KEY_CLOCK_POSITION_DP, (params.leftMargin / density).roundToInt())
-                        .putInt(KEY_CLOCK_POSITION_Y_DP, (params.topMargin / density).roundToInt())
-                        .apply()
-                    true
-                }
-                else -> false
-            }
-        }
         clock.setOnLongClickListener {
-            toast("Clock selected. Use all four arrow buttons to move it; press OK to center.")
+            beginHomeWidgetMove("clock", clock)
             true
         }
-        clock.setOnKeyListener { view, keyCode, event ->
-            if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
-            val params = view.layoutParams as FrameLayout.LayoutParams
-            val reserved = if (widgetStyle != WIDGET_OFF && placement == "side") dp(142) else dp(12)
-            val maxLeft = (strip.width - view.width - reserved).coerceAtLeast(0)
-            val maxTop = (strip.height - view.height).coerceAtLeast(0)
-            when (keyCode) {
-                KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    params.leftMargin = (params.leftMargin - dp(18)).coerceAtLeast(0)
-                }
-                KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    params.leftMargin = (params.leftMargin + dp(18)).coerceAtMost(maxLeft)
-                }
-                KeyEvent.KEYCODE_DPAD_UP -> {
-                    params.topMargin = (params.topMargin - dp(18)).coerceAtLeast(0)
-                }
-                KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    params.topMargin = (params.topMargin + dp(18)).coerceAtMost(maxTop)
-                }
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    params.leftMargin = maxLeft / 2
-                    params.topMargin = maxTop / 2
-                }
-                else -> return@setOnKeyListener false
-            }
-            view.layoutParams = params
-            val density = resources.displayMetrics.density
-            prefs.edit()
-                .putInt(KEY_CLOCK_POSITION_DP, (params.leftMargin / density).roundToInt())
-                .putInt(KEY_CLOCK_POSITION_Y_DP, (params.topMargin / density).roundToInt())
-                .apply()
-            true
-        }
+        clock.setOnKeyListener { view, keyCode, event -> handleHomeWidgetKey("clock", view, keyCode, event) }
 
         parent.addView(strip, LinearLayout.LayoutParams(-1, dp(154)).apply { bottomMargin = dp(18) })
         if (futuristicWidgetView != null) {
             mainHandler.removeCallbacks(widgetFrameTicker)
             mainHandler.post(widgetFrameTicker)
         }
+    }
+
+
+    private fun beginHomeWidgetMove(id: String, view: View) {
+        if (movingHomeWidgetId != null) finishHomeWidgetMove(save = false, showMessage = false)
+        val params = view.layoutParams as? FrameLayout.LayoutParams ?: return
+        movingHomeWidgetId = id
+        movingHomeWidgetView = view
+        originalHomeWidgetPosition = params.leftMargin to params.topMargin
+        view.isSelected = true
+        toast("MOVE WIDGET: use LEFT / RIGHT / UP / DOWN. Press OK to save or BACK to cancel.")
+    }
+
+    private fun handleHomeWidgetKey(id: String, view: View, keyCode: Int, event: KeyEvent): Boolean {
+        if (movingHomeWidgetId != id) return false
+        val handled = keyCode == KeyEvent.KEYCODE_DPAD_LEFT ||
+            keyCode == KeyEvent.KEYCODE_DPAD_RIGHT ||
+            keyCode == KeyEvent.KEYCODE_DPAD_UP ||
+            keyCode == KeyEvent.KEYCODE_DPAD_DOWN ||
+            keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
+            keyCode == KeyEvent.KEYCODE_ENTER ||
+            keyCode == KeyEvent.KEYCODE_BACK ||
+            keyCode == KeyEvent.KEYCODE_ESCAPE
+        if (!handled) return false
+        if (event.action != KeyEvent.ACTION_DOWN) return true
+
+        when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                finishHomeWidgetMove(save = true)
+                return true
+            }
+            KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> {
+                finishHomeWidgetMove(save = false)
+                return true
+            }
+        }
+
+        val params = view.layoutParams as? FrameLayout.LayoutParams ?: return true
+        val bounds = view.parent as? FrameLayout ?: return true
+        val maxLeft = (bounds.width - view.width).coerceAtLeast(0)
+        val maxTop = (bounds.height - view.height).coerceAtLeast(0)
+        when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT -> params.leftMargin = (params.leftMargin - dp(18)).coerceAtLeast(0)
+            KeyEvent.KEYCODE_DPAD_RIGHT -> params.leftMargin = (params.leftMargin + dp(18)).coerceAtMost(maxLeft)
+            KeyEvent.KEYCODE_DPAD_UP -> params.topMargin = (params.topMargin - dp(18)).coerceAtLeast(0)
+            KeyEvent.KEYCODE_DPAD_DOWN -> params.topMargin = (params.topMargin + dp(18)).coerceAtMost(maxTop)
+        }
+        view.layoutParams = params
+        return true
+    }
+
+    private fun finishHomeWidgetMove(save: Boolean, showMessage: Boolean = true) {
+        val view = movingHomeWidgetView
+        val id = movingHomeWidgetId
+        if (view != null && id != null) {
+            val params = view.layoutParams as? FrameLayout.LayoutParams
+            if (params != null) {
+                if (!save) {
+                    originalHomeWidgetPosition?.let { origin ->
+                        params.leftMargin = origin.first
+                        params.topMargin = origin.second
+                        view.layoutParams = params
+                    }
+                } else {
+                    val density = resources.displayMetrics.density
+                    val x = (params.leftMargin / density).roundToInt()
+                    val y = (params.topMargin / density).roundToInt()
+                    val editor = prefs.edit()
+                    if (id == "clock") {
+                        editor.putInt(KEY_CLOCK_POSITION_DP, x).putInt(KEY_CLOCK_POSITION_Y_DP, y)
+                    } else {
+                        editor.putInt(KEY_FUTURE_WIDGET_X_DP, x).putInt(KEY_FUTURE_WIDGET_Y_DP, y)
+                    }
+                    editor.apply()
+                }
+            }
+            view.isSelected = false
+        }
+        movingHomeWidgetId = null
+        movingHomeWidgetView = null
+        originalHomeWidgetPosition = null
+        if (showMessage) toast(if (save) "Widget position saved." else "Widget movement cancelled.")
     }
 
             private fun buildApps(parent: LinearLayout) {
@@ -655,14 +644,6 @@ class MainActivity : Activity() {
         addSettingCard(parent, "✦   Accent color", "Current accent: ${accentName()}") { cycleAccent() }
         addSettingCard(
             parent,
-            if (prefs.getBoolean(KEY_CLEAN_HOME, false)) "✓   Clean Home layout: ON" else "□   Clean Home layout: OFF",
-            "Hide the large intro and shortcut panels for a minimal wallpaper-first screen"
-        ) {
-            prefs.edit().putBoolean(KEY_CLEAN_HOME, !prefs.getBoolean(KEY_CLEAN_HOME, false)).apply()
-            renderPage(PAGE_CUSTOMIZE)
-        }
-        addSettingCard(
-            parent,
             if (prefs.getBoolean(KEY_APPS_ROWS, false)) "▤   Apps layout: Rows" else "▦   Apps layout: Grid",
             "Choose line-wise rows or a compact app grid"
         ) {
@@ -686,7 +667,6 @@ class MainActivity : Activity() {
                 .remove(KEY_BUILTIN_WALLPAPER)
                 .remove(KEY_WALLPAPER_SCALE)
                 .remove(KEY_WALLPAPER_DIM)
-                .putBoolean(KEY_CLEAN_HOME, false)
                 .putString(KEY_THEME, THEME_GLASS)
                 .putInt(KEY_ACCENT, 0)
                 .apply()
@@ -771,7 +751,7 @@ class MainActivity : Activity() {
             }
         }
         addSettingCard(parent, "◉   Futuristic Widgets", "Configure the animated globe or orbital reactor") { renderPage(PAGE_WIDGETS) }
-        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.3.2 · Created by Mirza Qasim") {
+        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.3.3 · Created by Mirza Qasim") {
             renderAbout(parent)
         }
         addSettingCard(parent, "↻   Restart launcher screen", "Reload NEXA without rebooting the TV") {
@@ -1129,7 +1109,7 @@ class MainActivity : Activity() {
     private fun buildHomeYoutubeRail(parent: LinearLayout) {
         if (!prefs.getBoolean(KEY_YOUTUBE_RECOMMENDATIONS_ENABLED, true)) return
 
-        parent.addView(sectionTitle("Videos picked for you"))
+        parent.addView(homeSectionTitle("Videos picked for you"))
         parent.addView(textView(
             "Fresh uploads from curated Pakistani and Indian Hindi/Urdu channels. Choose a category to browse.",
             13,
@@ -1146,7 +1126,7 @@ class MainActivity : Activity() {
     private fun buildYoutube(parent: LinearLayout) {
         parent.addView(sectionTitle("YouTube channel library"))
         parent.addView(infoCard(
-            "No YouTube API key is needed. NEXA reads public uploads from ${YoutubeChannelCatalog.uniqueChannelCount} curated Pakistani and Indian channels across Hindi/Urdu dramas, movies, technology, gaming and vlogs. Your private YouTube Home remains available in the official app."
+            "No YouTube API key is needed. NEXA includes ${YoutubeChannelCatalog.uniqueChannelCount} curated channel entries across Pakistani, Indian and wider Hindi/Urdu categories. Some channels may be unavailable or have no public uploads; unavailable feeds are skipped."
         ))
         addSettingCard(parent, "▶   Open my official YouTube Home", "See your account-based recommendations and subscriptions") {
             openYouTubeHome()
@@ -1238,7 +1218,8 @@ class MainActivity : Activity() {
         val cached = youtubeVideoCache[topic]
         if (cached != null) {
             if (cached.isEmpty()) {
-                parent.addView(infoCard("No recent uploads were returned by these channels. Check the internet connection or refresh."))
+                parent.addView(infoCard("No public uploads were found in this category right now. You can still browse its channels directly on YouTube."))
+                parent.addView(navButton("▶   Browse this category on YouTube", false) { openYouTubeSearch("Pakistani Indian Hindi Urdu $topic YouTube channels latest videos") })
             } else {
                 addYoutubeVideoCards(parent, cached, topic)
             }
@@ -1253,6 +1234,7 @@ class MainActivity : Activity() {
         val error = youtubeErrors[topic]
         if (!error.isNullOrBlank()) {
             parent.addView(infoCard(error))
+            parent.addView(navButton("▶   Browse this category on YouTube", false) { openYouTubeSearch("Pakistani Indian Hindi Urdu $topic YouTube channels latest videos") })
             addSettingCard(parent, "↻   Try this category again", "Refresh public channel feeds") {
                 youtubeErrors.remove(topic)
                 renderPage(targetPage)
@@ -1260,15 +1242,17 @@ class MainActivity : Activity() {
             return
         }
 
-        parent.addView(textView("Loading latest uploads from ${channels.size} channels…", 14, textMuted).apply {
+        parent.addView(textView("Checking public uploads from ${channels.size} channel sources…", 14, textMuted).apply {
             setPadding(0, dp(12), 0, dp(18))
         })
+        parent.addView(navButton("▶   Browse this category on YouTube", false) { openYouTubeSearch("Pakistani Indian Hindi Urdu $topic YouTube channels latest videos") })
         if (youtubeFetchInProgress.add(topic)) {
             youtubeExecutor.execute {
                 try {
                     val videos = YoutubeFeed.fetchVideos(channels, maxResults)
                     mainHandler.post {
                         youtubeVideoCache[topic] = videos
+                        prefs.edit().putString(KEY_YOUTUBE_CHANNEL_ID_CACHE, JSONObject(YoutubeFeed.channelIdCache()).toString()).apply()
                         youtubeErrors.remove(topic)
                         youtubeFetchInProgress.remove(topic)
                         if (currentPage == targetPage) renderPage(targetPage)
@@ -1448,7 +1432,7 @@ class MainActivity : Activity() {
     }
 
     private fun renderAbout(parent: LinearLayout) {
-        parent.addView(infoCard("NEXA Smart TV Launcher\nVersion 1.2.0\nCreated by Mirza Qasim\nFaisalabad, Pakistan\n\nBuilt as an independent Android TV home experience."))
+        parent.addView(infoCard("NEXA Smart TV Launcher\nVersion 1.3.3\nCreated by Mirza Qasim\nFaisalabad, Pakistan\n\nBuilt as an independent Android TV home experience."))
     }
 
     private fun addSettingCard(parent: LinearLayout, title: String, subtitle: String, action: () -> Unit) {
@@ -1902,9 +1886,13 @@ class MainActivity : Activity() {
         else -> "Glass"
     }
 
-    private fun sectionTitle(title: 
-String): TextView = textView(title, 21, textLight, true).apply {
+    private fun sectionTitle(title: String): TextView = textView(title, 21, textLight, true).apply {
         setPadding(0, dp(7), 0, dp(12))
+    }
+
+    private fun homeSectionTitle(title: String): TextView = sectionTitle(title).apply {
+        isFocusable = true
+        setOnFocusChangeListener { view, focused -> view.alpha = if (focused) 1f else 0.92f }
     }
 
     private fun infoCard(message: String): View = TextView(this).apply {
@@ -2011,12 +1999,12 @@ String): TextView = textView(title, 21, textLight, true).apply {
         private const val KEY_YOUTUBE_ACTIVE_TOPIC = "youtube_active_topic"
         private const val KEY_YOUTUBE_SCORES = "youtube_interest_scores"
         private const val KEY_YOUTUBE_RECOMMENDATIONS_ENABLED = "youtube_recommendations_enabled"
+        private const val KEY_YOUTUBE_CHANNEL_ID_CACHE = "youtube_channel_id_cache"
         private const val KEY_FAVORITE_APPS = "favorite_apps"
         private const val KEY_APP_ORDER = "app_manual_order"
         private const val KEY_APPS_ROWS = "apps_rows_layout"
         private const val KEY_WALLPAPER_SCALE = "wallpaper_scale"
         private const val KEY_WALLPAPER_DIM = "wallpaper_dim"
-        private const val KEY_CLEAN_HOME = "clean_home_layout"
         private const val KEY_CLOCK_POSITION_DP = "clock_position_dp"
         private const val KEY_CLOCK_POSITION_Y_DP = "clock_position_y_dp"
         private const val KEY_FUTURE_WIDGET = "future_widget_style"
