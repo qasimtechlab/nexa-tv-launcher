@@ -1,85 +1,84 @@
-# NEXA Smart TV Launcher — V1.3.3
+# NEXA Smart TV Launcher — V1.3.4
 
-Native Android TV launcher built with Kotlin and classic Android Views. Designed for older Android TV boxes and remote-control navigation.
+Native Android TV launcher built with Kotlin and classic Android Views. Designed for Android TV devices and compatible TV boxes with remote-first navigation.
 
 **Creator:** Mirza Qasim  
 **Origin:** Faisalabad, Pakistan  
-**AI assistant:** BixSigma AI, powered by the user's own Gemini API key.
+**AI assistant:** BixSigma AI, powered by each user's own Gemini API key.
 
 ## Home screen and apps
 
-- Clean Home layout that can hide the large introductory panels and make the wallpaper the focus.
-- Home screen Favorites row shows only apps explicitly added by the user.
-- Long-press the remote's OK/Center button on an app to open the styled application options menu.
-- App options include open, add/remove Favorites, move up/down or enter an exact numbered position in the library, and request uninstall through Android's system confirmation.
-- Full installed-app library supports Grid and line-wise Rows layouts.
-- Manual app ordering is shared by the app library and Favorites row.
-- Live clock and date widget on Home. Drag it with a pointer/touch input or move it with LEFT/RIGHT on a remote; the clock can also be centered with a preset.
+- The Home screen opens directly with the widget strip, Favorites and the YouTube video feed. The large introductory slogan and shortcut-card panel have been removed.
+- Home Favorites shows only apps explicitly added by the user.
+- Long-press OK/Center on an app to open its options menu: open, add/remove Favorites, move app or request uninstall through Android's system confirmation.
+- The app library supports Grid and Rows layouts. Manual app order is shared by the app library and Favorites.
+- On Home, long-press OK/Center on the clock or animated widget to open its options. Choose **Move widget** to enter move mode or **Center widget** to center it.
+- During widget move mode, LEFT/RIGHT/UP/DOWN adjust its position inside the widget strip. Press OK/Center to save or BACK to cancel. Outside move mode, arrow keys retain normal focus navigation and vertical scrolling; widgets do not drift when the user scrolls.
 
 ## YouTube video cards — API-free Hindi/Urdu channel feeds
 
-- No YouTube Data API key, Gemini key reuse, Google Cloud project or OAuth setup is required for the curated public video feed.
-- NEXA includes **32 curated Pakistani and Indian channels across seven categories**: Pakistani Dramas, Indian Movies, Indian TV & Dramas, Hindi/Urdu Technology, Hindi/Urdu Gaming, Pakistani Vlogs and Indian Vlogs.
-- The initial list includes official broadcaster/movie-library channels such as HUM TV, ARY Digital, Har Pal Geo, Green TV, SET India, Colors TV, Goldmines, Shemaroo Movies, Ultra Movie Parlour and Rajshri, plus Hindi/Urdu tech, gaming and vlog creators including Tech Burner, AS Gaming, Gyan Gaming, Lokesh Gamer and Rabeeca Khan.
-- NEXA reads public YouTube Atom upload feeds. Channel handles are resolved to stable channel IDs and cached locally, then available uploads are merged, duplicate videos are removed and results are sorted by publish date.
-- Cards show video title, channel name and a thumbnail derived from the YouTube video ID. Selecting a card opens that exact video in the installed YouTube app when available.
-- Categories can be enabled or disabled from **YouTube → Choose video categories**. Topic opens adjust only NEXA's local category order; this is not YouTube's private recommendation algorithm.
-- **Settings → YouTube Recommendations** can switch the Home video section ON or OFF. OFF hides the entire recommendation section; the user's explicitly selected Favorite Apps row and the rest of the Home layout remain unchanged.
-- **Open my official YouTube Home** launches the installed YouTube app for the signed-in user's own recommendations, watch history and subscriptions.
+- No YouTube Data API key, Gemini key reuse, Google Cloud project or OAuth setup is required for the public feed.
+- The maintained starter catalogue contains **212 named channel entries across 22 categories**, covering Pakistani and Indian dramas, movies, news, music/naats, technology, gaming, vlogs, lifestyle, food, education, Islamic content, kids/family, sports, documentaries, travel, DIY, podcasts, business and cars.
+- NEXA reads public YouTube Atom upload feeds. Handle-based entries are resolved to stable channel IDs and cached locally. Unavailable channels and feeds with no public uploads are skipped; active uploads are merged, duplicates removed and results sorted by publish date.
+- If the selected category has no available uploads, Home tries other selected categories for an active feed. If no feed can be loaded, NEXA shows a direct YouTube category-browse option instead of an empty video rail.
+- Video cards show title, channel and thumbnail. Selecting a card opens that video in the installed YouTube app when available.
+- Categories can be selected from **YouTube → Choose video categories**. Topic opens adjust NEXA's local category order; this is not YouTube's private recommendation algorithm.
+- **Settings → YouTube Recommendations** can switch the Home video section ON or OFF.
+- **Open my official YouTube Home** launches the installed YouTube app for the signed-in user's recommendations, watch history and subscriptions.
 
 ### YouTube feed limitations
 
-The public Atom feed is a channel-upload feed, not a global YouTube search endpoint. NEXA can only show recent public uploads from channel IDs included in its curated catalogue. It cannot discover every Pakistani or Indian channel automatically, read private account watch history, or reproduce YouTube's personal recommendation engine. Channel uploads, video availability, copyright permissions and regional playback restrictions can change; movie and drama cards are shown only when the channel itself publicly exposes those uploads. The catalogue is a curated starter library and can be expanded after channel IDs and upload feeds are verified.
+The public Atom feed is a channel-upload feed, not a global YouTube search endpoint. The 212-entry catalogue is a maintained curated starter list, not a claim that every entry is active or that thousands of channels have been verified. YouTube handles can change, feeds can be blocked or empty, uploads can be removed, and availability may vary by region. If no public feed is available, users can browse the category directly in YouTube. NEXA cannot read private watch history, perform unrestricted global channel discovery or reproduce YouTube's personal recommendation algorithm.
 
 ## Wallpapers and widgets
 
 - Six built-in offline gradient wallpapers plus a local image picker for gaming, space, nature or personal wallpapers.
 - Wallpaper framing controls: Fill Screen, Fit Full Image or Center.
 - Adjustable wallpaper overlay strength to balance image visibility and card readability.
-- On the Home widget strip, hold OK on the clock or animated widget to enter Move mode. Use LEFT/RIGHT/UP/DOWN to reposition it, press OK to save, or BACK to cancel. Normal directional presses no longer move widgets.
+- Widgets can be repositioned with a TV remote using the explicit long-press options and move mode described above.
 - Glass, Dark and Light appearance modes plus accent colour selection.
-- Clean Home mode hides extra panels for a minimal wallpaper-first screen.
 - **Futuristic Widgets** settings offer an offline animated Rotating Earth globe or Orbital Reactor, with side/center placement and an off switch.
-- The clock widget can be repositioned on the Home strip; its position is stored locally.
+- Widget positions are stored locally on the TV.
 
 ## BixSigma AI
 
 - Chat using Google's Gemini Interactions API.
-- Add, replace, test and remove a personal Gemini API key from the TV interface.
-- Automatic fallback across supported Gemini Flash choices when a model is temporarily overloaded.
-- Gemini key stored in app-private preferences; Android Keystore AES-GCM encryption is used where supported.
-- The key is entered on the TV and is not stored in this repository or included in the APK.
-- Gemini requests require an internet connection. Free-tier model availability, quotas and data terms are controlled by Google. Do not submit passwords or other sensitive information.
+- Add, replace, test and remove a personal Gemini API key from the TV interface. The Add API key dialog includes a remote-friendly **Paste from clipboard** button.
+- Gemini key storage uses app-private preferences and Android Keystore AES-GCM encryption where supported.
+- Every assistant reply has a speaker control. It uses Gemini 3.8 Flash TTS to generate natural spoken audio with the same personal API key used for chat. Press the speaker again to stop playback.
+- Voice generation requires internet access and TTS model access/quota for the user's Google AI project. Availability, limits and terms are controlled by Google.
+- NEXA does not contain a shared developer API key. Do not embed API keys in the public APK or source repository; a client-side key can be extracted and its quota abused.
 
 ## Compatibility and testing
 
 Configured for minSdk 21, compileSdk 35, JDK 17, Android Gradle Plugin 8.7.3, Kotlin 2.1.20 and Gradle 8.9. Cloud builds run unit tests, Android lint and assemble a debug APK.
 
 The generated test APK is copied to:
-`releases/NEXA-TV-Launcher-v1.3.3-debug.apk`
+`releases/NEXA-TV-Launcher-v1.3.4-debug.apk`
 
-It is also uploaded as the `NEXA-TV-Launcher-debug-APK` artifact in GitHub Actions. This is a debug APK for testing, not a signed public release.
+It is also uploaded as the `NEXA-TV-Launcher-debug-APK` artifact in GitHub Actions. This is a debug APK for testing, not a signed public Play release.
 
 ## Safe installation and testing
 
 1. Install the APK as a normal app; do not replace or disable the factory launcher.
 2. Open NEXA from the TV Apps list.
-3. Test LEFT/RIGHT/UP/DOWN/CENTER/BACK remote navigation.
+3. Test LEFT/RIGHT/UP/DOWN/CENTER/BACK remote navigation and normal vertical Home scrolling.
 4. Test opening and returning from several apps.
-5. Test long-press OK on an app, Favorites, moving an app and uninstall confirmation.
-6. Test the recommendations ON/OFF switch, category feeds, thumbnails and video launching without entering an API key.
-7. Test built-in wallpapers, custom wallpaper selection, framing and overlay controls.
-8. Test the draggable clock and each futuristic widget.
-9. Only after the checks pass, choose NEXA as the default Home app.
-10. Keep the original launcher enabled so it can be selected again if needed.
+5. Test long-press OK on an app, Favorites, app move mode and uninstall confirmation.
+6. Test long-press OK on the clock and animated widget, options menu, four-way movement, OK save and BACK cancel.
+7. Test the recommendations ON/OFF switch, categories, feed fallback, thumbnails and video launching.
+8. Test built-in wallpapers, custom wallpaper selection, framing and overlay controls.
+9. Test BixSigma chat, API-key clipboard paste, Gemini TTS play/stop and the TV's speaker output.
+10. Only after the checks pass, choose NEXA as the default Home app. Keep the original launcher enabled so it can be selected again if needed.
 
 ## Current limitations
 
-- YouTube topic ranking uses local interest selections and card opens; it does not access private watch history or reproduce YouTube's account-level recommendation algorithm.
-- Curated YouTube cards use public channel Atom feeds from the maintained catalogue. If a public feed is blocked, unavailable or empty, users can open a category search in YouTube. This is not a global feed index and does not provide account-personalized recommendations.
-- Gemini voice input, microphone activation, AI-generated speech and screensaver controls are not implemented.
-- System apps protected by the TV firmware may not be uninstallable through Android's normal package installer.
-- Wallpaper picker availability depends on TV firmware and available document-provider apps.
+- YouTube recommendations are curated public channel uploads, not global search or account-personalized recommendations.
+- Some channel entries may be inactive, renamed or blocked. NEXA skips unavailable feeds and falls back to other categories; a category search remains available in YouTube.
+- Gemini speech generation depends on the user's own key, TTS model access, internet connectivity and quota.
+- Microphone input uses Android's SpeechRecognizer and depends on the TV firmware, recognition service and microphone permissions.
+- System apps protected by TV firmware may not be uninstallable through Android's normal package installer.
+- Wallpaper picker availability depends on TV firmware and installed document-provider apps.
 - Blur is represented by translucent glass-style surfaces for older Android compatibility.
 - NEXA does not disable, uninstall or modify factory launcher packages automatically.
 
