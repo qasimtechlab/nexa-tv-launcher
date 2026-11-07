@@ -112,11 +112,16 @@ class MainActivity : Activity() {
         prefs = getSharedPreferences("nexa_preferences", MODE_PRIVATE)
         val savedYoutubeTopics = prefs.getString(KEY_YOUTUBE_INTERESTS, null)
         val supportedYoutubeTopics = YoutubeChannelCatalog.categoryNames
-        if (savedYoutubeTopics.isNullOrBlank() ||
-            savedYoutubeTopics.split("|").none { it.trim() in supportedYoutubeTopics }
-        ) {
-            prefs.edit().putString(KEY_YOUTUBE_INTERESTS, DEFAULT_YOUTUBE_INTERESTS).apply()
-        }
+        val previousCategories = setOf(
+            "Pakistani Dramas", "Indian Movies", "Indian TV & Dramas",
+            "Hindi/Urdu Technology", "Hindi/Urdu Gaming", "Pakistani Vlogs", "Indian Vlogs"
+        )
+        val selectedOldTopics = savedYoutubeTopics.orEmpty().split("|")
+            .map { it.trim() }.filter { it in supportedYoutubeTopics }
+        val newlyAddedTopics = supportedYoutubeTopics.filter { it !in previousCategories }
+        val migratedTopics = (selectedOldTopics + newlyAddedTopics).distinct()
+            .ifEmpty { supportedYoutubeTopics }
+        prefs.edit().putString(KEY_YOUTUBE_INTERESTS, migratedTopics.joinToString("|")).apply()
         // Restore cached YouTube handle lookups from the previous session.
         try {
             val cache = JSONObject(prefs.getString(KEY_YOUTUBE_CHANNEL_ID_CACHE, "{}") ?: "{}")
@@ -1149,7 +1154,7 @@ class MainActivity : Activity() {
             .map { it.trim() }
             .filter { it in YoutubeChannelCatalog.categoryNames }
             .distinct()
-            .take(8)
+            .take(24)
             .ifEmpty { DEFAULT_YOUTUBE_INTERESTS.split("|") }
         val scores = try {
             JSONObject(prefs.getString(KEY_YOUTUBE_SCORES, "{}") ?: "{}")
@@ -1262,6 +1267,7 @@ class MainActivity : Activity() {
                         ?: "Could not load YouTube uploads. Check the internet connection and try again."
                     mainHandler.post {
                         youtubeErrors[topic] = message
+                        prefs.edit().putString(KEY_YOUTUBE_CHANNEL_ID_CACHE, JSONObject(YoutubeFeed.channelIdCache()).toString()).apply()
                         youtubeFetchInProgress.remove(topic)
                         if (currentPage == targetPage) renderPage(targetPage)
                     }
@@ -2014,7 +2020,7 @@ class MainActivity : Activity() {
         private const val WIDGET_OFF = "off"
         private const val WIDGET_GLOBE = "globe"
         private const val WIDGET_REACTOR = "reactor"
-        private const val DEFAULT_YOUTUBE_INTERESTS = "Pakistani Dramas|Indian Movies|Indian TV & Dramas|Hindi/Urdu Technology|Hindi/Urdu Gaming|Pakistani Vlogs|Indian Vlogs"
+        private const val DEFAULT_YOUTUBE_INTERESTS = "Pakistani Dramas|Indian Movies|Indian TV & Dramas|Pakistani News|Indian News|Pakistani Music & Naats|Indian Music & Bhakti|Hindi/Urdu Technology|Hindi/Urdu Gaming|Pakistani Vlogs|Indian Vlogs & Lifestyle|Food & Cooking|Education & Science|Islamic & Spiritual|Kids & Family|Sports & Cricket|Documentary & History|Travel & Outdoors|Beauty, DIY & Home|Comedy & Podcasts|Business & Finance|Cars & Vehicles"
         private const val KEY_THEME = "theme"
         private const val KEY_ACCENT = "accent"
         private const val THEME_GLASS = "glass"
