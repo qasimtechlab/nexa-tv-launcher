@@ -847,6 +847,9 @@ class MainActivity : Activity() {
             showAiKeyDialog()
         }
         addSettingCard(parent, "↗   Get API key", "Open the secure key provider dashboard") { openApiKeyPortal() }
+        addSettingCard(parent, "🔒   Secret", "Unlock the local API key vault with your PIN") {
+            showSecretPinDialog()
+        }
         addSettingCard(parent, "⌁   Set remote voice button",
             "Choose BixSigma AI as your TV assistant so the remote voice key can open this screen") { requestDefaultAssistant() }
 
@@ -946,6 +949,74 @@ class MainActivity : Activity() {
                 LinearLayout.LayoutParams(-2, dp(42)))
         }
         return card
+    }
+
+    private fun showSecretPinDialog() {
+        val pinInput = EditText(this).apply {
+            hint = "Enter PIN"
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            setSingleLine(true)
+            textSize = 20f
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            setTextColor(textLight)
+            setHintTextColor(textMuted)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Secret vault")
+            .setMessage("Enter the vault PIN to access the API key saved on this TV.")
+            .setView(pinInput)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Unlock") { _, _ ->
+                if (pinInput.text?.toString() == "9898") {
+                    showSecretVault()
+                } else {
+                    toast("Incorrect PIN.")
+                }
+            }
+            .show()
+    }
+
+    private fun showSecretVault() {
+        val savedKey = keyVault.read()
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(8), dp(22), 0)
+        }
+        if (savedKey.isNullOrBlank()) {
+            panel.addView(textView(
+                "No API key is stored on this TV yet. For account and quota safety, NEXA does not include a shared developer API key in its public APK. Create your own free-tier key in Google AI Studio, then return to Add API key and press Paste.",
+                14, textMuted
+            ))
+        } else {
+            panel.addView(textView(
+                "A personal Gemini API key is saved locally on this TV. It is kept in app-private storage and is not uploaded to the NEXA website or repository.",
+                14, textMuted
+            ))
+            panel.addView(textView("Saved key: ••••••••••••••••••••", 14, textLight, true).apply {
+                setPadding(0, dp(12), 0, 0)
+            })
+        }
+
+        val builder = AlertDialog.Builder(this)
+            .setTitle("Secret • Personal API key vault")
+            .setView(panel)
+            .setNegativeButton("Close", null)
+            .setNeutralButton("Open Google AI Studio") { _, _ -> openApiKeyPortal() }
+
+        if (savedKey.isNullOrBlank()) {
+            builder.setPositiveButton("Create API key") { _, _ -> openApiKeyPortal() }
+        } else {
+            builder.setPositiveButton("Copy saved key") { _, _ ->
+                try {
+                    val clipboard = getSystemService(CLIPBOARD_SERVICE) as? ClipboardManager
+                    clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Gemini API key", savedKey))
+                    toast("Your saved API key was copied to the TV clipboard.")
+                } catch (_: Exception) {
+                    toast("Could not copy the saved API key.")
+                }
+            }
+        }
+        builder.show()
     }
 
     private fun showAiKeyDialog() {
