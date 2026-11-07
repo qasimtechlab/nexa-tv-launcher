@@ -264,7 +264,6 @@ class MainActivity : Activity() {
             isFillViewport = true
             isFocusable = false
             isFocusableInTouchMode = false
-            smoothScrollingEnabled = true
             clipToPadding = false
             setPadding(dp(42), dp(24), dp(42), dp(38))
             overScrollMode = View.OVER_SCROLL_NEVER
