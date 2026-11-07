@@ -1,4 +1,4 @@
-# NEXA Smart TV Launcher — V1.2.1
+# NEXA Smart TV Launcher — V1.3.3
 
 Native Android TV launcher built with Kotlin and classic Android Views. Designed for older Android TV boxes and remote-control navigation.
 
@@ -21,7 +21,7 @@ Native Android TV launcher built with Kotlin and classic Android Views. Designed
 - No YouTube Data API key, Gemini key reuse, Google Cloud project or OAuth setup is required for the curated public video feed.
 - NEXA includes **32 curated Pakistani and Indian channels across seven categories**: Pakistani Dramas, Indian Movies, Indian TV & Dramas, Hindi/Urdu Technology, Hindi/Urdu Gaming, Pakistani Vlogs and Indian Vlogs.
 - The initial list includes official broadcaster/movie-library channels such as HUM TV, ARY Digital, Har Pal Geo, Green TV, SET India, Colors TV, Goldmines, Shemaroo Movies, Ultra Movie Parlour and Rajshri, plus Hindi/Urdu tech, gaming and vlog creators including Tech Burner, AS Gaming, Gyan Gaming, Lokesh Gamer and Rabeeca Khan.
-- NEXA reads each configured channel's public YouTube Atom uploads feed, merges recent uploads, removes duplicate videos and sorts by publish date.
+- NEXA reads public YouTube Atom upload feeds. Channel handles are resolved to stable channel IDs and cached locally, then available uploads are merged, duplicate videos are removed and results are sorted by publish date.
 - Cards show video title, channel name and a thumbnail derived from the YouTube video ID. Selecting a card opens that exact video in the installed YouTube app when available.
 - Categories can be enabled or disabled from **YouTube → Choose video categories**. Topic opens adjust only NEXA's local category order; this is not YouTube's private recommendation algorithm.
 - **Settings → YouTube Recommendations** can switch the Home video section ON or OFF. OFF hides the entire recommendation section; the user's explicitly selected Favorite Apps row and the rest of the Home layout remain unchanged.
@@ -36,6 +36,7 @@ The public Atom feed is a channel-upload feed, not a global YouTube search endpo
 - Six built-in offline gradient wallpapers plus a local image picker for gaming, space, nature or personal wallpapers.
 - Wallpaper framing controls: Fill Screen, Fit Full Image or Center.
 - Adjustable wallpaper overlay strength to balance image visibility and card readability.
+- On the Home widget strip, hold OK on the clock or animated widget to enter Move mode. Use LEFT/RIGHT/UP/DOWN to reposition it, press OK to save, or BACK to cancel. Normal directional presses no longer move widgets.
 - Glass, Dark and Light appearance modes plus accent colour selection.
 - Clean Home mode hides extra panels for a minimal wallpaper-first screen.
 - **Futuristic Widgets** settings offer an offline animated Rotating Earth globe or Orbital Reactor, with side/center placement and an off switch.
@@ -55,7 +56,7 @@ The public Atom feed is a channel-upload feed, not a global YouTube search endpo
 Configured for minSdk 21, compileSdk 35, JDK 17, Android Gradle Plugin 8.7.3, Kotlin 2.1.20 and Gradle 8.9. Cloud builds run unit tests, Android lint and assemble a debug APK.
 
 The generated test APK is copied to:
-`releases/NEXA-TV-Launcher-v1.2.1-debug.apk`
+`releases/NEXA-TV-Launcher-v1.3.3-debug.apk`
 
 It is also uploaded as the `NEXA-TV-Launcher-debug-APK` artifact in GitHub Actions. This is a debug APK for testing, not a signed public release.
 
@@ -75,7 +76,7 @@ It is also uploaded as the `NEXA-TV-Launcher-debug-APK` artifact in GitHub Actio
 ## Current limitations
 
 - YouTube topic ranking uses local interest selections and card opens; it does not access private watch history or reproduce YouTube's account-level recommendation algorithm.
-- Curated YouTube cards use public channel Atom feeds; they are limited to the channel IDs bundled in NEXA and do not provide global search or account-personalized recommendations.
+- Curated YouTube cards use public channel Atom feeds from the maintained catalogue. If a public feed is blocked, unavailable or empty, users can open a category search in YouTube. This is not a global feed index and does not provide account-personalized recommendations.
 - Gemini voice input, microphone activation, AI-generated speech and screensaver controls are not implemented.
 - System apps protected by the TV firmware may not be uninstallable through Android's normal package installer.
 - Wallpaper picker availability depends on TV firmware and available document-provider apps.
