@@ -791,7 +791,7 @@ class MainActivity : Activity() {
             }
         }
         addSettingCard(parent, "◉   Futuristic Widgets", "Configure the animated globe or orbital reactor") { renderPage(PAGE_WIDGETS) }
-        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.3.3 · Created by Mirza Qasim") {
+        addSettingCard(parent, "ⓘ   About NEXA", "Version 1.3.4 · Created by Mirza Qasim") {
             renderAbout(parent)
         }
         addSettingCard(parent, "↻   Restart launcher screen", "Reload NEXA without rebooting the TV") {
@@ -1597,7 +1597,7 @@ class MainActivity : Activity() {
     }
 
     private fun renderAbout(parent: LinearLayout) {
-        parent.addView(infoCard("NEXA Smart TV Launcher\nVersion 1.3.3\nCreated by Mirza Qasim\nFaisalabad, Pakistan\n\nBuilt as an independent Android TV home experience."))
+        parent.addView(infoCard("NEXA Smart TV Launcher\nVersion 1.3.4\nCreated by Mirza Qasim\nFaisalabad, Pakistan\n\nBuilt as an independent Android TV home experience."))
     }
 
     private fun addSettingCard(parent: LinearLayout, title: String, subtitle: String, action: () -> Unit) {
