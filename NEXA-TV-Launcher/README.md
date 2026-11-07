@@ -1,4 +1,4 @@
-# NEXA Smart TV Launcher — V1.3.4
+# NEXA Smart TV Launcher — V1.3.5
 
 Native Android TV launcher built with Kotlin and classic Android Views. Designed for Android TV devices and compatible TV boxes with remote-first navigation.
 
@@ -55,7 +55,7 @@ The public Atom feed is a channel-upload feed, not a global YouTube search endpo
 Configured for minSdk 21, compileSdk 35, JDK 17, Android Gradle Plugin 8.7.3, Kotlin 2.1.20 and Gradle 8.9. Cloud builds run unit tests, Android lint and assemble a debug APK.
 
 The generated test APK is copied to:
-`releases/NEXA-TV-Launcher-v1.3.4-debug.apk`
+`releases/NEXA-TV-Launcher-v1.3.5-debug.apk`
 
 It is also uploaded as the `NEXA-TV-Launcher-debug-APK` artifact in GitHub Actions. This is a debug APK for testing, not a signed public Play release.
 
@@ -70,7 +70,7 @@ It is also uploaded as the `NEXA-TV-Launcher-debug-APK` artifact in GitHub Actio
 7. Test the recommendations ON/OFF switch, categories, feed fallback, thumbnails and video launching.
 8. Test built-in wallpapers, custom wallpaper selection, framing and overlay controls.
 9. Test BixSigma chat, API-key clipboard paste, Gemini TTS play/stop and the TV's speaker output.
-10. Only after the checks pass, choose NEXA as the default Home app. Keep the original launcher enabled so it can be selected again if needed.
+10. Only after the checks pass, choose NEXA as the default Home app. The v1.3.5 button first requests Android's Home role, then tries available Home/Default Apps settings. Keep the original launcher enabled so it can be selected again if needed.
 
 ## Current limitations
 
