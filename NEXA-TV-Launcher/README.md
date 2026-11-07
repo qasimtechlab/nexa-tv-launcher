@@ -44,8 +44,9 @@ The public Atom feed is a channel-upload feed, not a global YouTube search endpo
 
 - Chat using Google's Gemini Interactions API.
 - Add, replace, test and remove a personal Gemini API key from the TV interface. The Add API key dialog includes a remote-friendly **Paste from clipboard** button.
+- The AI page includes a **Secret** vault opened with the supplied UI PIN. It can copy the personal API key already saved on that TV. A fresh install does not contain a shared developer key; users create their own key in Google AI Studio. The PIN is a convenience gate, not a security boundary, because app code can be inspected.
 - Gemini key storage uses app-private preferences and Android Keystore AES-GCM encryption where supported.
-- Every assistant reply has a speaker control. It uses Gemini 3.8 Flash TTS to generate natural spoken audio with the same personal API key used for chat. Press the speaker again to stop playback.
+- Every assistant reply has a speaker control. It uses Gemini 3.8 Flash TTS to generate natural spoken audio with the same personal API key used for chat. Press the speaker again to stop playback. The control shows when audio is being generated or played.
 - Voice generation requires internet access and TTS model access/quota for the user's Google AI project. Availability, limits and terms are controlled by Google.
 - NEXA does not contain a shared developer API key. Do not embed API keys in the public APK or source repository; a client-side key can be extracted and its quota abused.
 
