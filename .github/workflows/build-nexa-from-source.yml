@@ -35,6 +35,11 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
+      - name: Restore a stable debug signing key for future test updates
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: nexa-tv-launcher-debug-signing-v1
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Run unit tests and build debug APK
