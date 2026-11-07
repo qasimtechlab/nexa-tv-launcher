@@ -116,8 +116,12 @@ class MainActivity : Activity() {
             "Pakistani Dramas", "Indian Movies", "Indian TV & Dramas",
             "Hindi/Urdu Technology", "Hindi/Urdu Gaming", "Pakistani Vlogs", "Indian Vlogs"
         )
-        val selectedOldTopics = savedYoutubeTopics.orEmpty().split("|")
-            .map { it.trim() }.filter { it in supportedYoutubeTopics }
+        val selectedOldTopics = if (savedYoutubeTopics.isNullOrBlank()) {
+            supportedYoutubeTopics
+        } else {
+            savedYoutubeTopics.split("|").map { it.trim() }
+                .filter { it in supportedYoutubeTopics }
+        }
         val newlyAddedTopics = supportedYoutubeTopics.filter { it !in previousCategories }
         val migratedTopics = (selectedOldTopics + newlyAddedTopics).distinct()
             .ifEmpty { supportedYoutubeTopics }
