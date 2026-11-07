@@ -6,6 +6,9 @@ import android.app.role.RoleManager
 import android.Manifest
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.ClipboardManager
+import android.media.MediaPlayer
+import java.io.File
 import android.content.pm.ResolveInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -21,7 +24,6 @@ import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
 import android.text.InputType
 import android.view.Gravity
 import android.view.KeyEvent
@@ -97,8 +99,12 @@ class MainActivity : Activity() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var speechListening = false
     private var aiMicButton: Button? = null
-    private var textToSpeech: TextToSpeech? = null
-    private var textToSpeechReady = false
+    private var activeSpeechPlayer: MediaPlayer? = null
+    private var activeSpeechFile: File? = null
+    private var activeSpeechMessageKey: String? = null
+    private var speechGenerationKey: String? = null
+    private var cancelledSpeechKey: String? = null
+    private val youtubeFeedSourceForTopic = ConcurrentHashMap<String, String>()
     private var movingAppPackage: String? = null
     private var focusAppAfterRender: String? = null
     private var originalAppOrderBeforeMove: List<String>? = null
@@ -158,7 +164,6 @@ class MainActivity : Activity() {
         setContentView(root)
         applyWallpaper()
         renderPage(PAGE_HOME)
-        initializeTextToSpeech()
         if (intent.getBooleanExtra(EXTRA_START_AI_VOICE, false)) mainHandler.postDelayed({ openAiAndListen() }, 500L)
     }
 
@@ -197,7 +202,7 @@ class MainActivity : Activity() {
         mainHandler.removeCallbacks(widgetFrameTicker)
         try { speechRecognizer?.cancel(); speechRecognizer?.destroy() } catch (_: Exception) { }
         speechRecognizer = null
-        textToSpeech?.stop(); textToSpeech?.shutdown()
+        stopSpeechPlayback()
         aiExecutor.shutdownNow(); youtubeExecutor.shutdownNow()
         super.onDestroy()
     }
@@ -400,7 +405,8 @@ class MainActivity : Activity() {
             background = cardDrawable(false, true)
             isFocusable = true
             isClickable = true
-            contentDescription = "Movable time and date widget. Use LEFT, RIGHT, UP and DOWN on the remote to position it."
+            isLongClickable = true
+            contentDescription = "Clock and date widget. Hold OK for options, then choose Move widget."
             setOnFocusChangeListener { view, focused -> view.background = cardDrawable(focused, true) }
         }
         val time = TextClock(this).apply {
@@ -420,12 +426,13 @@ class MainActivity : Activity() {
             val art = FuturisticWidgetView(this, widgetStyle).apply {
                 isFocusable = true
                 isClickable = true
+                isLongClickable = true
                 contentDescription = if (widgetStyle == WIDGET_REACTOR)
                     "Animated orbital reactor widget. Use all four arrow buttons to move it on Home."
                 else "Animated rotating Earth widget. Use all four arrow buttons to move it on Home."
                 setOnClickListener { if (movingHomeWidgetId == null) renderPage(PAGE_WIDGETS) }
                 setOnLongClickListener {
-                    beginHomeWidgetMove("art", this)
+                    showHomeWidgetOptions("art", this)
                     true
                 }
                 setOnFocusChangeListener { view, focused ->
@@ -486,7 +493,7 @@ class MainActivity : Activity() {
         }
 
         clock.setOnLongClickListener {
-            beginHomeWidgetMove("clock", clock)
+            showHomeWidgetOptions("clock", clock)
             true
         }
         clock.setOnKeyListener { view, keyCode, event -> handleHomeWidgetKey("clock", view, keyCode, event) }
@@ -499,6 +506,30 @@ class MainActivity : Activity() {
     }
 
 
+    private fun showHomeWidgetOptions(id: String, view: View) {
+        val title = if (id == "clock") "Clock & date widget" else "Animated widget"
+        val bounds = view.parent as? FrameLayout ?: return
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setItems(arrayOf("Move widget", "Center widget")) { dialog, which ->
+                if (which == 0) {
+                    beginHomeWidgetMove(id, view)
+                } else {
+                    val params = view.layoutParams as? FrameLayout.LayoutParams
+                    if (params != null) {
+                        params.leftMargin = ((bounds.width - view.width).coerceAtLeast(0)) / 2
+                        params.topMargin = ((bounds.height - view.height).coerceAtLeast(0)) / 2
+                        view.layoutParams = params
+                        saveHomeWidgetPosition(id, params)
+                        toast("$title centered.")
+                    }
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private fun beginHomeWidgetMove(id: String, view: View) {
         if (movingHomeWidgetId != null) finishHomeWidgetMove(save = false, showMessage = false)
         val params = view.layoutParams as? FrameLayout.LayoutParams ?: return
@@ -506,7 +537,8 @@ class MainActivity : Activity() {
         movingHomeWidgetView = view
         originalHomeWidgetPosition = params.leftMargin to params.topMargin
         view.isSelected = true
-        toast("MOVE WIDGET: use LEFT / RIGHT / UP / DOWN. Press OK to save or BACK to cancel.")
+        view.requestFocus()
+        toast("MOVE MODE: use LEFT / RIGHT / UP / DOWN. Press OK to save or BACK to cancel.")
     }
 
     private fun handleHomeWidgetKey(id: String, view: View, keyCode: Int, event: KeyEvent): Boolean {
