@@ -16,5 +16,16 @@
       "source": "/release.json",
       "destination": "https://raw.githubusercontent.com/qasimtechlab/nexa-tv-launcher/main/releases/latest.json"
     }
+  ],
+  "headers": [
+    {
+      "source": "/release.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0, must-revalidate"
+        }
+      ]
+    }
   ]
 }
