@@ -579,6 +579,19 @@ class MainActivity : Activity() {
         return true
     }
 
+    private fun saveHomeWidgetPosition(id: String, params: FrameLayout.LayoutParams) {
+        val density = resources.displayMetrics.density
+        val x = (params.leftMargin / density).roundToInt()
+        val y = (params.topMargin / density).roundToInt()
+        val editor = prefs.edit()
+        if (id == "clock") {
+            editor.putInt(KEY_CLOCK_POSITION_DP, x).putInt(KEY_CLOCK_POSITION_Y_DP, y)
+        } else {
+            editor.putInt(KEY_FUTURE_WIDGET_X_DP, x).putInt(KEY_FUTURE_WIDGET_Y_DP, y)
+        }
+        editor.apply()
+    }
+
     private fun finishHomeWidgetMove(save: Boolean, showMessage: Boolean = true) {
         val view = movingHomeWidgetView
         val id = movingHomeWidgetId
