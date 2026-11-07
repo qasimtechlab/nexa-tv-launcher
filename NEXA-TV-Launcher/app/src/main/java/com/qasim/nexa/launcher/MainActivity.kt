@@ -913,11 +913,25 @@ class MainActivity : Activity() {
 
     private fun aiChatBubble(role: String, message: String): View {
         val assistant = role == "assistant"
-        val card = glassCard(false).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(12), dp(16), dp(10)) }
+        val card = glassCard(false).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(10))
+        }
         card.addView(textView(if (assistant) "BIXSIGMA AI" else "YOU", 10, if (assistant) accent else textMuted, true))
-        card.addView(textView(message, 15, textLight).apply { setPadding(0, dp(5), 0, dp(6)); setTextIsSelectable(true) })
-        if (assistant) card.addView(navButton("◖))  Listen to reply", false) { speakAnswer(message) },
-            LinearLayout.LayoutParams(-2, dp(42)))
+        card.addView(textView(message, 15, textLight).apply {
+            setPadding(0, dp(5), 0, dp(6))
+            setTextIsSelectable(true)
+        })
+        if (assistant) {
+            val key = speechMessageKey(message)
+            val label = when {
+                speechGenerationKey == key -> "◌   Preparing natural voice…"
+                activeSpeechMessageKey == key -> "■   Stop voice"
+                else -> "▶   Listen to reply"
+            }
+            card.addView(navButton(label, false) { toggleSpeechPlayback(message) },
+                LinearLayout.LayoutParams(-2, dp(42)))
+        }
         return card
     }
 
@@ -928,10 +942,25 @@ class MainActivity : Activity() {
             setText(keyVault.read().orEmpty())
             setPadding(dp(14), dp(12), dp(14), dp(12)); setTextColor(textLight); setHintTextColor(textMuted)
         }
+        val pasteButton = navButton("📋   Paste from clipboard", false) {
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as? ClipboardManager
+            val pasted = try {
+                clipboard?.primaryClip?.takeIf { it.itemCount > 0 }
+                    ?.getItemAt(0)?.coerceToText(this)?.toString()?.trim().orEmpty()
+            } catch (_: Exception) { "" }
+            if (pasted.length >= 20) {
+                input.setText(pasted)
+                input.setSelection(input.text.length)
+                toast("Clipboard content pasted.")
+            } else {
+                toast("Clipboard does not contain a valid API key.")
+            }
+        }
         val holder = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(22), dp(8), dp(22), 0)
             addView(input, LinearLayout.LayoutParams(-1, dp(56)))
-            addView(textView("Create or copy your key, then paste it here. It stays on this TV and is not saved in the repository.", 12, textMuted).apply {
+            addView(pasteButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(9) })
+            addView(textView("Create or copy your own Gemini API key, then use Paste. The key stays on this TV and is not saved in the public repository. NEXA does not include a shared developer key.", 12, textMuted).apply {
                 setPadding(0, dp(10), 0, 0)
             })
         }
@@ -971,21 +1000,99 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun initializeTextToSpeech() {
-        textToSpeech = TextToSpeech(this) { result ->
-            textToSpeechReady = result == TextToSpeech.SUCCESS
-            if (textToSpeechReady) {
-                val lang = textToSpeech?.setLanguage(Locale.getDefault())
-                if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED)
-                    textToSpeech?.language = Locale.US
+    private fun speechMessageKey(text: String): String =
+        text.hashCode().toString() + "_" + text.length.toString()
+
+    private fun toggleSpeechPlayback(text: String) {
+        val key = speechMessageKey(text)
+        if (activeSpeechMessageKey == key && activeSpeechPlayer != null) {
+            stopSpeechPlayback()
+            toast("Voice playback stopped.")
+            if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+            return
+        }
+        if (speechGenerationKey != null) {
+            cancelledSpeechKey = speechGenerationKey
+            toast("Current voice request is being stopped. Tap Listen again after it finishes.")
+            return
+        }
+
+        stopSpeechPlayback()
+        val apiKey = keyVault.read()
+        if (apiKey.isNullOrBlank()) {
+            showAiKeyDialog()
+            return
+        }
+
+        speechGenerationKey = key
+        cancelledSpeechKey = null
+        if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+        toast("Generating natural Gemini voice…")
+        aiExecutor.execute {
+            try {
+                val audioBytes = GeminiApi.generateSpeech(apiKey, text)
+                val audioFile = File(cacheDir, "bixsigma_voice_${System.currentTimeMillis()}.wav")
+                audioFile.writeBytes(audioBytes)
+                mainHandler.post {
+                    speechGenerationKey = null
+                    if (cancelledSpeechKey == key || isFinishing || isDestroyed) {
+                        if (cancelledSpeechKey == key) cancelledSpeechKey = null
+                        audioFile.delete()
+                        if (currentPage == PAGE_AI && !isFinishing && !isDestroyed) renderPage(PAGE_AI)
+                        return@post
+                    }
+                    try {
+                        val player = MediaPlayer()
+                        activeSpeechPlayer = player
+                        activeSpeechFile = audioFile
+                        activeSpeechMessageKey = key
+                        player.setDataSource(audioFile.absolutePath)
+                        player.setOnPreparedListener {
+                            if (activeSpeechPlayer === player) {
+                                player.start()
+                                if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+                            }
+                        }
+                        player.setOnCompletionListener {
+                            if (activeSpeechPlayer === player) {
+                                stopSpeechPlayback()
+                                if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+                            }
+                        }
+                        player.setOnErrorListener { _, _, _ ->
+                            if (activeSpeechPlayer === player) {
+                                stopSpeechPlayback()
+                                toast("Gemini voice could not be played on this TV.")
+                                if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+                            }
+                            true
+                        }
+                        player.prepareAsync()
+                    } catch (error: Exception) {
+                        audioFile.delete()
+                        stopSpeechPlayback()
+                        toast(error.message ?: "Could not play generated voice.")
+                    }
+                }
+            } catch (error: Exception) {
+                mainHandler.post {
+                    speechGenerationKey = null
+                    if (cancelledSpeechKey == key) cancelledSpeechKey = null
+                    toast(error.message ?: "Gemini voice generation failed. Check your API key and internet.")
+                    if (currentPage == PAGE_AI) renderPage(PAGE_AI)
+                }
             }
         }
     }
 
-    private fun speakAnswer(text: String) {
-        if (!textToSpeechReady || textToSpeech == null) { toast("Voice playback is not ready on this TV yet."); return }
-        textToSpeech?.stop()
-        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "bixsigma-" + System.currentTimeMillis())
+    private fun stopSpeechPlayback() {
+        val player = activeSpeechPlayer
+        activeSpeechPlayer = null
+        try { player?.stop() } catch (_: Exception) { }
+        try { player?.release() } catch (_: Exception) { }
+        activeSpeechFile?.delete()
+        activeSpeechFile = null
+        activeSpeechMessageKey = null
     }
 
     private fun startVoiceInput(input: EditText) {
