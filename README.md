@@ -1,6 +1,6 @@
 # NEXA TV Launcher
 
-NEXA is a native Android TV launcher by Mirza Qasim. Version **1.3.6** adds an optional Accessibility service that routes the TV remote HOME button to NEXA on supported devices, alongside the Android TV Home-role selection prompt and settings fallbacks, remote-friendly widget move mode, a larger curated YouTube catalogue with feed fallbacks, Gemini-generated spoken AI replies, clipboard paste for personal Gemini API keys, and a PIN-gated local key vault.
+NEXA is a native Android TV launcher by Mirza Qasim. Version **1.3.7** adds a top-bar shortcut to the Android TV system Settings app and consistent animated D-pad focus feedback with layered glass styling. It also retains the optional HOME-button Accessibility service, Android Home-role prompt, widget move mode, curated YouTube feeds, Gemini voice replies and local personal-key vault.
 
 - Android source: [NEXA-TV-Launcher](NEXA-TV-Launcher/)
 - Website: [NEXA TV Launcher](website/)
