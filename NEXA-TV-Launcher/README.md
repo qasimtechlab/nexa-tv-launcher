@@ -1,4 +1,4 @@
-# NEXA Smart TV Launcher — V1.3.5
+# NEXA Smart TV Launcher — V1.3.7
 
 Native Android TV launcher built with Kotlin and classic Android Views. Designed for Android TV devices and compatible TV boxes with remote-first navigation.
 
@@ -50,12 +50,18 @@ The public Atom feed is a channel-upload feed, not a global YouTube search endpo
 - Voice generation requires internet access and TTS model access/quota for the user's Google AI project. Availability, limits and terms are controlled by Google.
 - NEXA does not contain a shared developer API key. Do not embed API keys in the public APK or source repository; a client-side key can be extracted and its quota abused.
 
+## System Settings and remote focus
+
+- A top-right **System Settings** gear opens the Android TV's actual Settings app, not NEXA's in-app Settings page.
+- Remote focus is animated consistently across selectable views with a short scale-up, lift and depth effect. Navigation and card surfaces use layered gradients and a clearer accent outline.
+- The global focus animation skips text-entry and slider controls to avoid interfering with typing or adjustment.
+
 ## Compatibility and testing
 
 Configured for minSdk 21, compileSdk 35, JDK 17, Android Gradle Plugin 8.7.3, Kotlin 2.1.20 and Gradle 8.9. Cloud builds run unit tests, Android lint and assemble a debug APK.
 
 The generated test APK is copied to:
-`releases/NEXA-TV-Launcher-v1.3.5-debug.apk`
+`releases/NEXA-TV-Launcher-v1.3.7-debug.apk`
 
 It is also uploaded as the `NEXA-TV-Launcher-debug-APK` artifact in GitHub Actions. This is a debug APK for testing, not a signed public Play release.
 
@@ -70,7 +76,7 @@ It is also uploaded as the `NEXA-TV-Launcher-debug-APK` artifact in GitHub Actio
 7. Test the recommendations ON/OFF switch, categories, feed fallback, thumbnails and video launching.
 8. Test built-in wallpapers, custom wallpaper selection, framing and overlay controls.
 9. Test BixSigma chat, API-key clipboard paste, Gemini TTS play/stop and the TV's speaker output.
-10. Only after the checks pass, choose NEXA as the default Home app. The v1.3.5 button first requests Android's Home role, then tries available Home/Default Apps settings. Keep the original launcher enabled so it can be selected again if needed.
+10. Only after the checks pass, choose NEXA as the default Home app. The v1.3.7 button first requests Android's Home role, then tries available Home/Default Apps settings. Keep the original launcher enabled so it can be selected again if needed.
 
 ## Current limitations
 
