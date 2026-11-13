@@ -162,6 +162,10 @@ class MainActivity : Activity() {
         root.addView(dimLayer, FrameLayout.LayoutParams(-1, -1))
         root.addView(contentHost, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
+        root.viewTreeObserver.addOnGlobalFocusChangeListener { oldFocus, newFocus ->
+            oldFocus?.let { animateRemoteFocus(it, false) }
+            newFocus?.let { animateRemoteFocus(it, true) }
+        }
         applyWallpaper()
         renderPage(PAGE_HOME)
         if (intent.getBooleanExtra(EXTRA_START_AI_VOICE, false)) mainHandler.postDelayed({ openAiAndListen() }, 500L)
@@ -320,12 +324,21 @@ class MainActivity : Activity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
         }
         val brand = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        brand.addView(textView("NEXA", 30, textLight, true))
-        brand.addView(textView("SMART TV EXPERIENCE", 10, textMuted, true))
+        brand.addView(textView("NEXA", 32, textLight, true))
+        brand.addView(textView("SMART TV  •  HOME EXPERIENCE", 10, accent, true))
         row.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
+
         val right = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            clipChildren = false
+            clipToPadding = false
+        }
+        val timeBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.END
         }
@@ -338,8 +351,29 @@ class MainActivity : Activity() {
             setTextColor(if (prefsOrDefaultTheme() == THEME_LIGHT) Color.rgb(22, 35, 53) else textLight)
             gravity = Gravity.END
         }
-        right.addView(time)
-        right.addView(textView(date, 12, textMuted).apply { gravity = Gravity.END })
+        timeBlock.addView(time)
+        timeBlock.addView(textView(date, 12, textMuted).apply { gravity = Gravity.END })
+        right.addView(timeBlock)
+
+        val settingsButton = TextView(this).apply {
+            text = "⚙"
+            textSize = 25f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            gravity = Gravity.CENTER
+            setTextColor(if (prefsOrDefaultTheme() == THEME_LIGHT) Color.rgb(22, 35, 53) else textLight)
+            background = headerIconDrawable(false)
+            isFocusable = true
+            isClickable = true
+            tag = "nexa_system_settings"
+            contentDescription = "Open Android TV system Settings"
+            setOnFocusChangeListener { view, focused ->
+                view.background = headerIconDrawable(focused)
+            }
+            setOnClickListener { openSystemTvSettings() }
+        }
+        right.addView(settingsButton, LinearLayout.LayoutParams(dp(56), dp(56)).apply {
+            leftMargin = dp(18)
+        })
         row.addView(right)
         parent.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(22) })
     }
@@ -809,6 +843,23 @@ class MainActivity : Activity() {
         addSettingCard(parent, "↻   Restart launcher screen", "Reload NEXA without rebooting the TV") {
             renderPage(PAGE_HOME)
         }
+    }
+
+    private fun openSystemTvSettings() {
+        // Open the device's real Android Settings app, not NEXA's own settings page.
+        val candidates = listOf(
+            Intent(Settings.ACTION_SETTINGS),
+            Intent().setClassName("com.android.tv.settings", "com.android.tv.settings.MainSettings")
+        )
+        for (intent in candidates) {
+            try {
+                startActivity(intent)
+                return
+            } catch (_: Exception) {
+                // Some TV manufacturers use a different Settings entry point.
+            }
+        }
+        toast("This TV does not expose a compatible system Settings screen.")
     }
 
     private fun openDefaultHomeSettings() {
@@ -2232,6 +2283,33 @@ class MainActivity : Activity() {
         layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(14) }
     }
 
+    private fun animateRemoteFocus(view: View, focused: Boolean) {
+        if (!view.isFocusable || view is EditText || view is SeekBar) return
+        val scale = when {
+            view.tag == "nexa_system_settings" && focused -> 1.09f
+            view is FuturisticWidgetView && focused -> 1.07f
+            focused -> 1.04f
+            else -> 1f
+        }
+        view.animate().cancel()
+        view.animate()
+            .scaleX(scale)
+            .scaleY(scale)
+            .translationY(if (focused) -dp(3).toFloat() else 0f)
+            .translationZ(if (focused) dp(9).toFloat() else 0f)
+            .setDuration(if (focused) 170L else 145L)
+            .start()
+    }
+
+    private fun headerIconDrawable(focused: Boolean): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(
+            if (focused) 0xCC456D98.toInt()
+            else if (prefsOrDefaultTheme() == THEME_LIGHT) 0xDDEAF0FA.toInt() else 0x88304460.toInt()
+        )
+        setStroke(dp(if (focused) 2 else 1), if (focused) accentColor() else 0x667F9BBD)
+    }
+
     private fun navButton(label: String, selected: Boolean, action: () -> Unit): TextView {
         return TextView(this).apply {
             text = label
@@ -2257,23 +2335,41 @@ class MainActivity : Activity() {
     }
 
     private fun cardDrawable(focused: Boolean, large: Boolean = false): GradientDrawable {
-        val tint = when (prefsOrDefaultTheme()) {
-            THEME_LIGHT -> if (focused) 0xFFF3F7FF.toInt() else 0xDDEAF0FA.toInt()
-            THEME_DARK -> if (focused) 0xFF26364E.toInt() else 0xBB18263A.toInt()
-            else -> if (focused) 0xCC44658A.toInt() else 0x8F233650.toInt()
+        val colors = when (prefsOrDefaultTheme()) {
+            THEME_LIGHT -> if (focused) {
+                intArrayOf(0xFFF9FCFF.toInt(), 0xFFE0EBF8.toInt())
+            } else {
+                intArrayOf(0xDFF1F5FC.toInt(), 0xCCDBE5F2.toInt())
+            }
+            THEME_DARK -> if (focused) {
+                intArrayOf(0xFF314D70.toInt(), 0xFF1B2F49.toInt())
+            } else {
+                intArrayOf(0xCC1A2B42.toInt(), 0xAA101E31.toInt())
+            }
+            else -> if (focused) {
+                intArrayOf(0xD95D83B1.toInt(), 0xA6324F74.toInt())
+            } else {
+                intArrayOf(0xA628405E.toInt(), 0x7020334D.toInt())
+            }
         }
         val strokeColor = if (focused) accentColor() else 0x557F9BBD.toInt()
-        return GradientDrawable().apply {
+        return GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, colors).apply {
             cornerRadius = dp(if (large) 26 else 20).toFloat()
-            setColor(tint)
             setStroke(dp(if (focused) 2 else 1), strokeColor)
         }
     }
 
-    private fun navDrawable(active: Boolean, focused: Boolean): GradientDrawable = GradientDrawable().apply {
-        cornerRadius = dp(22).toFloat()
-        setColor(if (active) 0xAA345579.toInt() else if (focused) 0xAA3A5879.toInt() else 0x66304460)
-        setStroke(dp(if (focused) 2 else 1), if (focused) accentColor() else 0x557F9BBD.toInt())
+    private fun navDrawable(active: Boolean, focused: Boolean): GradientDrawable {
+        val colors = when {
+            active && focused -> intArrayOf(0xEE5279A8.toInt(), 0xCC345579.toInt())
+            active -> intArrayOf(0xAA456B96.toInt(), 0x88345579.toInt())
+            focused -> intArrayOf(0xCC456D98.toInt(), 0xAA304E72.toInt())
+            else -> intArrayOf(0x773A5879, 0x55304460)
+        }
+        return GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, colors).apply {
+            cornerRadius = dp(22).toFloat()
+            setStroke(dp(if (focused) 2 else 1), if (focused) accentColor() else 0x557F9BBD.toInt())
+        }
     }
 
     private fun accentColor(): Int = when (prefsOrDefaultAccent()) {
