@@ -110,6 +110,24 @@ jobs:
           if count != 1:
               raise SystemExit("Could not update the website SoftwareApplication version")
           html = re.sub(r'(data-release-version>)[^<]*', lambda m: m.group(1) + version, html)
+          replacements = {
+              "Current release is a debug/test build": "Current release is a signed Release APK",
+              "Release notice: the currently distributed APK is a debug/test build and is not a production-signed Google Play release. Install it for testing and keep your factory launcher enabled until you have checked compatibility.": "Release notice: this APK is signed with NEXA's permanent release key for direct distribution. Keep the factory launcher enabled until you have checked compatibility with your Android TV firmware.",
+              "<span>Debug package</span><strong>com.qasim.nexa.launcher.debug</strong>": "<span>Release package</span><strong>com.qasim.nexa.launcher</strong>",
+              "<span>Build status</span><strong>Debug / test build</strong>": "<span>Build status</span><strong>Signed Release APK</strong>",
+          }
+          for old, new in replacements.items():
+              if old not in html:
+                  raise SystemExit("Expected release website text is missing: " + old[:70])
+              html = html.replace(old, new, 1)
+          html, faq_count = re.subn(
+              r'(<summary>Is the current NEXA APK production-signed\?</summary><p>)No\. The currently distributed APK is a debug/test build, not a production-signed release\. Install it for testing and keep your factory launcher enabled until you have checked compatibility\.(</p>)',
+              r'\1Yes. The published APK is signed with NEXA\'s permanent release key for direct APK distribution. Store acceptance remains subject to each store\'s review requirements.\2',
+              html,
+              count=1,
+          )
+          if faq_count != 1:
+              raise SystemExit("Could not update the production-signing FAQ")
           page.write_text(html, encoding="utf-8")
           PY
           git config user.name "github-actions[bot]"
