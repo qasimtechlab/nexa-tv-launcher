@@ -1,1 +1,0 @@
-Temporary permission test for a separate BixSigma build branch. No NEXA main-branch files are changed.
