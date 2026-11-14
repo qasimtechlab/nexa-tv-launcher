@@ -37,15 +37,17 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
-      - name: Set up Gradle
+      - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x NEXA-TV-Launcher/gradlew
+      - name: Verify Gradle installation
+        run: gradle --version
 
       - name: Run unit tests and Android lint
         working-directory: NEXA-TV-Launcher
-        run: ./gradlew --no-daemon testDebugUnitTest lintRelease
+        run: gradle --no-daemon testDebugUnitTest lintRelease
 
       - name: Check release signing secrets
         id: signing
@@ -81,7 +83,7 @@ jobs:
           NEXA_RELEASE_STORE_PASSWORD: ${{ secrets.NEXA_RELEASE_STORE_PASSWORD }}
           NEXA_RELEASE_KEY_ALIAS: ${{ secrets.NEXA_RELEASE_KEY_ALIAS }}
           NEXA_RELEASE_KEY_PASSWORD: ${{ secrets.NEXA_RELEASE_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon assembleRelease
+        run: gradle --no-daemon assembleRelease
 
       - name: Publish latest APK and versioned APK to the repository
         if: steps.signing.outputs.available == 'true'
