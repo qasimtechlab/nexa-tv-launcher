@@ -1,0 +1,118 @@
+name: NEXA Signed Release APK
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "NEXA-TV-Launcher/**"
+      - ".github/workflows/nexa-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nexa-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-release:
+    name: Test and build signed Release APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x NEXA-TV-Launcher/gradlew
+
+      - name: Run unit tests and Android lint
+        working-directory: NEXA-TV-Launcher
+        run: ./gradlew --no-daemon testDebugUnitTest lintRelease
+
+      - name: Check release signing secrets
+        id: signing
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.NEXA_RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.NEXA_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NEXA_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.NEXA_RELEASE_KEY_PASSWORD }}
+        run: |
+          if [[ -n "$KEYSTORE_B64" && -n "$STORE_PASSWORD" && -n "$KEY_ALIAS" && -n "$KEY_PASSWORD" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Release signing is not configured yet. Tests ran, but no public Release APK was generated. Add the four NEXA_RELEASE_* Actions secrets to enable automatic releases."
+          fi
+
+      - name: Restore protected release keystore
+        if: steps.signing.outputs.available == 'true'
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.NEXA_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/nexa-release.jks"
+          test -s "$RUNNER_TEMP/nexa-release.jks"
+          chmod 600 "$RUNNER_TEMP/nexa-release.jks"
+
+      - name: Build signed Release APK
+        if: steps.signing.outputs.available == 'true'
+        working-directory: NEXA-TV-Launcher
+        env:
+          NEXA_RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/nexa-release.jks
+          NEXA_RELEASE_STORE_PASSWORD: ${{ secrets.NEXA_RELEASE_STORE_PASSWORD }}
+          NEXA_RELEASE_KEY_ALIAS: ${{ secrets.NEXA_RELEASE_KEY_ALIAS }}
+          NEXA_RELEASE_KEY_PASSWORD: ${{ secrets.NEXA_RELEASE_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Publish latest APK and versioned APK to the repository
+        if: steps.signing.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          GRADLE_FILE="NEXA-TV-Launcher/app/build.gradle.kts"
+          VERSION_NAME="$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' "$GRADLE_FILE" | head -n 1)"
+          VERSION_CODE="$(sed -n 's/^[[:space:]]*versionCode = \([0-9][0-9]*\).*/\1/p' "$GRADLE_FILE" | head -n 1)"
+          APK_SOURCE="NEXA-TV-Launcher/app/build/outputs/apk/release/app-release.apk"
+          test -n "$VERSION_NAME"
+          test -n "$VERSION_CODE"
+          test -s "$APK_SOURCE"
+          mkdir -p releases
+          cp "$APK_SOURCE" "releases/NEXA-TV-Launcher-v${VERSION_NAME}.apk"
+          cp "$APK_SOURCE" "releases/NEXA-TV-Launcher-latest.apk"
+          RELEASE_DATE="$(date -u +%F)"
+          printf '{"version":"%s","versionCode":%s,"releaseDate":"%s","file":"NEXA-TV-Launcher-latest.apk"}\n' "$VERSION_NAME" "$VERSION_CODE" "$RELEASE_DATE" > releases/latest.json
+          sha256sum releases/NEXA-TV-Launcher-latest.apk > releases/NEXA-TV-Launcher-latest.apk.sha256
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add releases/NEXA-TV-Launcher-v${VERSION_NAME}.apk releases/NEXA-TV-Launcher-latest.apk releases/latest.json releases/NEXA-TV-Launcher-latest.apk.sha256
+          git commit -m "release: NEXA TV Launcher v${VERSION_NAME} (signed APK)"
+          git push origin HEAD:main
+
+      - name: Save signed APK as a downloadable workflow artifact
+        if: steps.signing.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXA-TV-Launcher-Release-APK
+          path: |
+            releases/NEXA-TV-Launcher-latest.apk
+            releases/NEXA-TV-Launcher-v*.apk
+            releases/NEXA-TV-Launcher-latest.apk.sha256
+          if-no-files-found: error
+          retention-days: 90
