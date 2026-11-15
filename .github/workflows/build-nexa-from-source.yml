@@ -1,81 +1,56 @@
-name: Build NEXA TV Launcher APK
+name: Build NEXA TV Launcher Debug APK (manual)
 
 on:
-  push:
-    paths:
-      - 'NEXA-TV-Launcher/**'
-      - '.github/workflows/build-nexa-from-source.yml'
   workflow_dispatch:
 
 concurrency:
-  group: nexa-tv-launcher-build
+  group: nexa-tv-launcher-debug
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
-    name: Compile, test and package APK
+    name: Test and package a separate Debug APK
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
         uses: actions/checkout@v6
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.9'
           cache-provider: basic
+
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
-          packages: platform-tools
-      - name: Restore a stable debug signing key for future test updates
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: nexa-tv-launcher-debug-signing-v1
-      - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - name: Run unit tests and build debug APK
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: Run tests and build Debug APK
         run: gradle -p NEXA-TV-Launcher :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
-      - name: Commit APK into repository
-        run: |
-          mkdir -p releases
-          VERSION="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' NEXA-TV-Launcher/app/build.gradle.kts | head -n 1)"
-          APK_NAME="NEXA-TV-Launcher-v${VERSION}-debug.apk"
-          cp NEXA-TV-Launcher/app/build/outputs/apk/debug/app-debug.apk "releases/${APK_NAME}"
-          cp NEXA-TV-Launcher/app/build/outputs/apk/debug/app-debug.apk releases/NEXA-TV-Launcher-latest.apk
-          RELEASE_DATE="$(date -u +%Y-%m-%d)"
-          printf '{"version":"%s","releaseDate":"%s","file":"NEXA-TV-Launcher-latest.apk"}\n' "$VERSION" "$RELEASE_DATE" > releases/latest.json
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "releases/${APK_NAME}" releases/NEXA-TV-Launcher-latest.apk releases/latest.json
-          if git diff --cached --quiet; then
-            echo "APK is unchanged; no repository commit needed."
-          else
-            git commit -m "build: publish NEXA TV Launcher v${VERSION} debug APK"
-            git fetch origin "${GITHUB_REF_NAME}"
-            git rebase "origin/${GITHUB_REF_NAME}"
-            git push origin HEAD:${GITHUB_REF_NAME}
-          fi
-      - name: Upload debug APK
+
+      - name: Upload separate Debug APK for testing
         uses: actions/upload-artifact@v4
         with:
-          name: NEXA-TV-Launcher-debug-APK
+          name: NEXA-TV-Launcher-Debug-TEST-ONLY
           path: NEXA-TV-Launcher/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
       - name: Upload build reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: NEXA-build-reports
+          name: NEXA-debug-build-reports
           path: |
             NEXA-TV-Launcher/app/build/reports/
             NEXA-TV-Launcher/app/build/test-results/
