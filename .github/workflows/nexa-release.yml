@@ -113,7 +113,7 @@ jobs:
           html = page.read_text(encoding="utf-8")
 
           html, count = re.subn(
-              r'("softwareVersion"\\s*:\\s*")[^"]+(")',
+              r'("softwareVersion"\s*:\s*")[^"]+(")',
               lambda m: m.group(1) + version + m.group(2),
               html,
               count=1,
@@ -149,7 +149,7 @@ jobs:
               raise SystemExit("Could not update release notice")
 
           html, count = re.subn(
-              r'<span>Debug package</span><strong>com\\.qasim\\.nexa\\.launcher\\.debug</strong>',
+              r'<span>Debug package</span><strong>com\.qasim\.nexa\.launcher\.debug</strong>',
               '<span>Release package</span><strong>com.qasim.nexa.launcher</strong>',
               html,
               count=1,
@@ -167,7 +167,7 @@ jobs:
               raise SystemExit("Could not update build status")
 
           html, count = re.subn(
-              r'(<summary>Is the current NEXA APK production-signed\\?</summary><p>).*?(</p>)',
+              r'(<summary>Is the current NEXA APK production-signed\?</summary><p>).*?(</p>)',
               lambda m: m.group(1) + "Yes. The published APK is signed with NEXA's permanent release key for direct APK distribution. Store acceptance remains subject to each store's review requirements." + m.group(2),
               html,
               count=1,
