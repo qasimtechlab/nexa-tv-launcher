@@ -116,7 +116,7 @@ jobs:
           html = re.sub(r'(data-release-version>)[^<]*', lambda m: m.group(1) + version, html)
           replacements = {
               "Current release is a debug/test build": "Current release is a signed Release APK",
-              "Release notice: the currently distributed APK is a debug/test build and is not a production-signed Google Play release. Install it for testing and keep your factory launcher enabled until you have checked compatibility.": "Release notice: this APK is signed with NEXA's permanent release key for direct distribution. Keep the factory launcher enabled until you have checked compatibility with your Android TV firmware.",
+              "Release notice: the currently published APK is a debug/test build and is not a production-signed Google Play release. Install it for testing and keep your factory launcher enabled until you have checked compatibility.": "Release notice: this APK is signed with NEXA's permanent release key for direct distribution. Keep the factory launcher enabled until you have checked compatibility with your Android TV firmware.",
               "<span>Debug package</span><strong>com.qasim.nexa.launcher.debug</strong>": "<span>Release package</span><strong>com.qasim.nexa.launcher</strong>",
               "<span>Build status</span><strong>Debug / test build</strong>": "<span>Build status</span><strong>Signed Release APK</strong>",
           }
