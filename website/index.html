@@ -200,6 +200,22 @@
       footer{padding-bottom:100px}
     }
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important}}
+    /* Lightweight mode for older Android phones and other low-power touch devices. */
+    @media(max-width:560px){
+      html{scroll-behavior:auto}
+      .sticky-install{
+        background:#202124;
+        -webkit-backdrop-filter:none;
+        backdrop-filter:none;
+      }
+      .lightbox-close,.lightbox-nav{
+        -webkit-backdrop-filter:none;
+        backdrop-filter:none;
+      }
+      .screen-open img,.install{transition:none}
+      .screen-open:hover img{filter:none;transform:none}
+      .app-icon{box-shadow:none}
+    }
   </style>
 </head>
 <body>
