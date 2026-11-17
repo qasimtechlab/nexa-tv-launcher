@@ -251,19 +251,19 @@
       <div class="screens" aria-label="NEXA TV Launcher screenshots">
         <article class="screen-card">
           <button class="screen-open" type="button" data-gallery-index="0" aria-label="View Home screen screenshot full screen">
-            <img src="/screenshots/Create_modern_launcher_screensho%E2%80%A6_568319f5.jpg" alt="NEXA TV Launcher home screen displayed on a television" loading="lazy" decoding="async">
+            <img data-src="/screenshots/Create_modern_launcher_screensho%E2%80%A6_568319f5.jpg" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="NEXA TV Launcher home screen displayed on a television" loading="lazy" decoding="async">
           </button>
           <div class="screen-caption">Home screen</div>
         </article>
         <article class="screen-card">
           <button class="screen-open" type="button" data-gallery-index="1" aria-label="View Customize and wallpapers screenshot full screen">
-            <img src="/screenshots/Creating_Android_TV_launcher_scr%E2%80%A6_c2c772bf.jpg" alt="NEXA TV Launcher customization and wallpaper interface" loading="lazy" decoding="async">
+            <img data-src="/screenshots/Creating_Android_TV_launcher_scr%E2%80%A6_c2c772bf.jpg" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="NEXA TV Launcher customization and wallpaper interface" loading="lazy" decoding="async">
           </button>
           <div class="screen-caption">Customize &amp; wallpapers</div>
         </article>
         <article class="screen-card">
           <button class="screen-open" type="button" data-gallery-index="2" aria-label="View BixSigma AI screenshot full screen">
-            <img src="/screenshots/Smart_TV_launcher_displaying_UI_c32512a7.jpg" alt="BixSigma AI assistant interface inside NEXA TV Launcher" loading="lazy" decoding="async">
+            <img data-src="/screenshots/Smart_TV_launcher_displaying_UI_c32512a7.jpg" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="BixSigma AI assistant interface inside NEXA TV Launcher" loading="lazy" decoding="async">
           </button>
           <div class="screen-caption">BixSigma AI</div>
         </article>
@@ -403,8 +403,29 @@
       var galleryButtons=Array.prototype.slice.call(document.querySelectorAll('.screen-open'));
       var galleryItems=galleryButtons.map(function(button){
         var img=button.querySelector('img');
-        return {src:img.src,alt:img.alt,caption:button.parentElement.querySelector('.screen-caption').textContent};
+        return {src:img.getAttribute('data-src')||img.currentSrc||img.src,alt:img.alt,caption:button.parentElement.querySelector('.screen-caption').textContent};
       });
+
+      // Load gallery images only when they are close to the visible phone screen.
+      // This fallback works on older Android browsers without native lazy-loading support.
+      var galleryScroller=document.querySelector('.screens');
+      function loadVisibleGalleryImages(){
+        galleryButtons.forEach(function(button){
+          var img=button.querySelector('img');
+          if(!img)return;
+          var source=img.getAttribute('data-src');
+          if(!source)return;
+          var rect=img.getBoundingClientRect();
+          if(rect.bottom>-120&&rect.top<window.innerHeight+120&&rect.right>-120&&rect.left<window.innerWidth+120){
+            img.src=source;
+            img.removeAttribute('data-src');
+          }
+        });
+      }
+      window.addEventListener('scroll',loadVisibleGalleryImages,{passive:true});
+      window.addEventListener('resize',loadVisibleGalleryImages,{passive:true});
+      if(galleryScroller)galleryScroller.addEventListener('scroll',loadVisibleGalleryImages,{passive:true});
+      loadVisibleGalleryImages();
       var activeIndex=0;
       var lastTrigger=null;
       var swipeStartX=null;
