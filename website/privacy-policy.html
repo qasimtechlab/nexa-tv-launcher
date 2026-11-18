@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="index,follow">
+  <meta name="description" content="Privacy Policy for NEXA TV Launcher by QasimTechLab. Learn how app preferences, microphone input, Gemini API keys and external services are handled.">
+  <title>Privacy Policy — NEXA TV Launcher</title>
+  <style>
+    :root{color-scheme:dark;--bg:#08111f;--panel:#101d30;--text:#edf4ff;--muted:#aab9ce;--accent:#79b7ff;--line:#263a55}
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#0a1729 0%,var(--bg) 360px);color:var(--text);font:16px/1.7 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    main{width:min(900px,calc(100% - 32px));margin:40px auto 64px}
+    header,.content{background:rgba(16,29,48,.94);border:1px solid var(--line);border-radius:20px;padding:clamp(22px,5vw,42px);box-shadow:0 18px 50px rgba(0,0,0,.18)}
+    .mark{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:13px;background:#203e62;color:#dceBff;font-weight:900;font-size:23px;margin-bottom:14px}
+    h1{font-size:clamp(30px,6vw,42px);line-height:1.15;margin:0 0 10px}
+    h2{font-size:21px;margin:30px 0 8px;color:#dcecff}
+    p,li{color:var(--muted)}
+    a{color:var(--accent);overflow-wrap:anywhere}
+    .meta{font-size:14px;color:#9fb2ca}
+    .content{margin-top:18px}
+    ul{padding-left:22px}
+    li{margin:8px 0}
+    footer{text-align:center;color:#8295af;font-size:13px;padding:22px 8px}
+    @media(max-width:560px){main{margin:16px auto 32px}header,.content{border-radius:15px}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="mark" aria-hidden="true">N</div>
+    <h1>Privacy Policy</h1>
+    <p><strong>NEXA TV Launcher</strong> · Package: <code>com.qasim.nexa.launcher</code></p>
+    <p class="meta">Developer: QasimTechLab · Last updated: 18 November 2026</p>
+  </header>
+  <article class="content">
+    <p>This Privacy Policy explains how NEXA TV Launcher handles information when you use the app. NEXA is an Android TV home-screen/launcher application developed by QasimTechLab.</p>
+
+    <h2>1. Information the app handles</h2>
+    <ul>
+      <li><strong>Launcher information:</strong> NEXA checks which launchable apps are installed on your device so it can show them on the home screen and open the app you select. This information is used locally by the launcher and is not sent to NEXA servers.</li>
+      <li><strong>Settings and favourites:</strong> Your launcher preferences, selected layout and related settings are stored in app-private storage on your device.</li>
+      <li><strong>Gemini API key:</strong> If you choose to use BixSigma AI, you enter your own Google Gemini API key. NEXA stores this key in app-private storage on your device. On Android 6.0 and later, the app attempts to protect it using AES-GCM encryption backed by Android Keystore. On Android 5.x, or if the device's Keystore is unavailable, the app uses app-private preferences as a fallback. The app's Android backup setting is disabled. Do not share your API key with other people.</li>
+      <li><strong>AI prompts and replies:</strong> When you use BixSigma AI, the prompt you submit and the text needed to generate a spoken reply are sent directly from your device to Google's Gemini API using the API key you supplied. These requests are handled by Google under Google's applicable terms and privacy practices. NEXA does not operate its own AI server.</li>
+      <li><strong>Microphone and speech:</strong> Microphone access is requested only when you choose voice input. Speech recognition is provided through the speech-recognition service available on your Android device. That service may process audio under its provider's own privacy policy. NEXA receives the recognised text so you can use it as an AI prompt.</li>
+      <li><strong>YouTube content:</strong> The optional channel feed loads publicly available YouTube RSS feeds and video thumbnails from YouTube servers. NEXA does not require you to sign in to YouTube for this feed.</li>
+    </ul>
+
+    <h2>2. Accessibility service</h2>
+    <p>NEXA offers an optional Home-button compatibility service for Android TV devices. If you enable it in Android Accessibility settings, the service receives Home-key and window-state events so NEXA can return to the launcher when appropriate. The current implementation uses the foreground app's package name for this function and does not request access to the accessibility node tree or on-screen text. These events are processed on the device and are not sent to NEXA servers. You can disable the service at any time in your device's Accessibility settings.</p>
+
+    <h2>3. How information is shared</h2>
+    <p>NEXA does not sell your personal information. The app does not include advertising or third-party analytics SDKs in the current release. Information is sent to external providers only when needed for features you use: Google Gemini for AI requests, your device's speech-recognition provider for voice input, and YouTube servers for public feeds and thumbnails. Those providers process requests under their own terms and privacy policies.</p>
+
+    <h2>4. Data storage, retention and deletion</h2>
+    <p>Launcher settings and your saved API key remain in the app's private storage on your device until you remove them, clear the app's data, or uninstall NEXA. You can remove the saved Gemini API key through the app's key settings. Temporary voice/audio output may be stored in the app's cache while it is played and is managed by Android as cache data. NEXA does not maintain a user account or a NEXA-operated database of your prompts. Data already sent to Google Gemini or a speech-recognition provider is subject to that provider's retention and deletion rules.</p>
+
+    <h2>5. Permissions and your choices</h2>
+    <ul>
+      <li><strong>Internet:</strong> used for Gemini AI requests and public YouTube feeds/thumbnails.</li>
+      <li><strong>Microphone:</strong> used only when you activate voice input; you can deny or revoke this permission in Android settings.</li>
+      <li><strong>Accessibility:</strong> optional and used for TV Home-button compatibility; you control it in Android Accessibility settings.</li>
+    </ul>
+    <p>You can use the basic launcher without adding a Gemini API key. AI and voice features require the relevant key, internet connection and device permissions/services.</p>
+
+    <h2>6. Children's privacy</h2>
+    <p>NEXA does not ask users to create an account or provide personal profile details. The app is not designed to collect children's personal information. Parents or guardians should supervise children's use of internet-connected features and third-party services.</p>
+
+    <h2>7. Security</h2>
+    <p>We use Android app-private storage and, where supported, Android Keystore-backed encryption for the saved API key. No method of electronic storage or transmission is completely secure. Keep your device protected and do not disclose your API key.</p>
+
+    <h2>8. Changes to this policy</h2>
+    <p>This policy may be updated when app features or data practices change. The latest version will be published at this same URL with a revised update date.</p>
+
+    <h2>9. Contact</h2>
+    <p>For privacy questions about NEXA TV Launcher, contact:</p>
+    <p><strong>QasimTechLab</strong><br>Email: <a href="mailto:qasimtechlab@gmail.com">qasimtechlab@gmail.com</a></p>
+  </article>
+  <footer>© 2026 QasimTechLab · NEXA TV Launcher</footer>
+</main>
+</body>
+</html>
